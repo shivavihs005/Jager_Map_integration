@@ -42,7 +42,7 @@ body {
     flex-direction: column;
     padding: 2rem;
     z-index: 1000;
-    box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
 }
 
 .logo h1 {
@@ -55,8 +55,10 @@ body {
     margin-bottom: 3rem;
 }
 
-.status-card, .action-card, .info-card {
-    background: rgba(255,255,255,0.03);
+.status-card,
+.action-card,
+.info-card {
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     padding: 1.5rem;
@@ -66,10 +68,11 @@ body {
 
 .status-card:hover {
     transform: translateY(-2px);
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
 }
 
-.status-card h3, .info-card h3 {
+.status-card h3,
+.info-card h3 {
     font-size: 0.9rem;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -175,7 +178,7 @@ body {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
+    background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(10px);
     padding: 10px 20px;
     border-radius: 30px;
@@ -191,13 +194,16 @@ body {
 ::-webkit-scrollbar {
     width: 8px;
 }
+
 ::-webkit-scrollbar-track {
-    background: var(--bg-dark); 
+    background: var(--bg-dark);
 }
+
 ::-webkit-scrollbar-thumb {
-    background: #333; 
+    background: #333;
     border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-    background: #555; 
+    background: #555;
 }
