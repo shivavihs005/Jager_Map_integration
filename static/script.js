@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     const DEFAULT_ZOOM = 13;
     const OSRM_API_URL = 'https://router.project-osrm.org/route/v1/driving/';
-    
+
     // --- State ---
     let map;
     let userMarker = null;
@@ -41,21 +41,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function locateUser() {
-        if (!navigator.geolocation) {
-            updateStatus('Geolocation not supported', true);
-            return;
-        }
+        updateStatus('Waiting for GPS fix...');
 
-        updateStatus('Locating you...');
-        
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                userLocation = { lat: latitude, lng: longitude };
-                
+        // Poll the server for GPS location every 2 seconds
+        setInterval(async () => {
+            try {
+                const response = await fetch('/api/location');
+                const data = await response.json();
+
+                // check if valid data (simple check for 0,0 default)
+                if (data.lat === 0 && data.lng === 0) {
+                    updateStatus('Waiting for GPS lock...', true); // warning color
+                    return;
+                }
+
+                userLocation = { lat: data.lat, lng: data.lng };
+
                 // Add/Move User Marker
                 if (userMarker) {
-                    userMarker.setLatLng([latitude, longitude]);
+                    userMarker.setLatLng([data.lat, data.lng]);
                 } else {
                     // Custom Icon for User
                     const userIcon = L.divIcon({
@@ -65,22 +69,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         iconAnchor: [11, 11]
                     });
 
-                    userMarker = L.marker([latitude, longitude], { icon: userIcon }).addTo(map);
+                    userMarker = L.marker([data.lat, data.lng], { icon: userIcon }).addTo(map);
                     userMarker.bindPopup("<b>You are here</b>").openPopup();
+
+                    // Center map on first fix
+                    map.setView([data.lat, data.lng], DEFAULT_ZOOM);
                 }
 
-                // Center map
-                map.setView([latitude, longitude], DEFAULT_ZOOM);
-                updateStatus('Location found. Pin a destination.');
-            },
-            (error) => {
-                console.error(error);
-                updateStatus('Unable to retrieve location', true);
-                // Fallback location (e.g., New York) if needed, or just let user scroll
-                map.setView([40.7128, -74.0060], 10);
-            },
-            { enableHighAccuracy: true }
-        );
+                // If looking at status text, update it unless we have a route
+                if (!destinationLocation) {
+                    updateStatus('GPS Fix Acquired. Pin a destination.');
+                }
+
+            } catch (error) {
+                console.error('Error fetching GPS data:', error);
+                updateStatus('Connection lost to GPS server', true);
+            }
+        }, 2000); // 2 second interval
     }
 
     function handleMapClick(latlng) {
@@ -108,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enable Button
         calcBtn.disabled = false;
         updateStatus('Destination pinned. Ready to route.');
-        
+
         // Clear previous route if any
         if (routePolyline) {
             map.removeLayer(routePolyline);
@@ -162,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Flip coordinates for Leaflet (GeoJSON is Lng,Lat; Leaflet needs Lat,Lng)
         // Actually L.geoJSON handles this automatically usually, but if we use raw coordinates:
         // Leaflet's L.geoJSON handles GeoJSON geometry natively.
-        
+
         routePolyline = L.geoJSON(geojson, {
             style: {
                 color: '#00f2ff',
@@ -189,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tripInfo.classList.add('hidden');
         destinationMarker = null;
         updateStatus('Map reset. Pin a destination.');
-        
+
         // Recenter on user
         if (userLocation) {
             map.setView([userLocation.lat, userLocation.lng], DEFAULT_ZOOM);
