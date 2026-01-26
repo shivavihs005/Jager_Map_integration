@@ -124,6 +124,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Logic ---
     calcBtn.addEventListener('click', calculateRoute);
+    startTravelBtn.addEventListener('click', startTravel);
+    stopTravelBtn.addEventListener('click', stopTravel);
+
+    async function startTravel() {
+        if (!destinationLocation) return;
+
+        startTravelBtn.classList.add('hidden');
+        stopTravelBtn.classList.remove('hidden');
+        updateStatus('Autonomous Travel Started! 🚀');
+
+        try {
+            await fetch('/api/navigate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(destinationLocation)
+            });
+        } catch (error) {
+            console.error(error);
+            updateStatus('Failed to start navigation', true);
+        }
+    }
+
+    async function stopTravel() {
+        startTravelBtn.classList.remove('hidden');
+        stopTravelBtn.classList.add('hidden');
+        updateStatus('Travel Stopped by User');
+
+        try {
+            await fetch('/api/stop', { method: 'POST' });
+        } catch (error) {
+            console.error(error);
+        }
+    }
 
     async function calculateRoute() {
         if (!userLocation || !destinationLocation) return;
@@ -150,7 +183,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             drawRoute(geometry);
             showStats(distanceKm);
-            updateStatus('Route calculated!');
+            updateStatus('Route calculated! Ready to Travel.');
+
+            // Enable Travel Button
+            startTravelBtn.classList.remove('hidden');
 
         } catch (error) {
             console.error(error);

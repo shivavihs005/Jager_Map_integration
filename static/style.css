@@ -118,6 +118,56 @@ body {
     color: #888;
 }
 
+.travel-btn {
+    width: 100%;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: none;
+    border-radius: 12px;
+    background: #2ed573;
+    color: #000;
+    font-weight: 600;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.travel-btn:hover {
+    background: #26af61;
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(46, 213, 115, 0.4);
+}
+
+.stop-btn {
+    width: 100%;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: none;
+    border-radius: 12px;
+    background: var(--danger);
+    color: white;
+    font-weight: 600;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.stop-btn:hover {
+    background: #e63e4d;
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+}
+
 .secondary-btn {
     width: 100%;
     padding: 0.8rem;
