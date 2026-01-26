@@ -21,9 +21,16 @@ You must enable the serial port and disable the login shell over serial.
 Navigate to the project directory on your Pi and run the setup script.
 
 ```bash
+# Recommended: Run directly with bash
+bash setup_env.sh
+```
+
+Alternatively, if you want to execute it directly:
+```bash
 chmod +x setup_env.sh
 ./setup_env.sh
 ```
+
 This script will:
 - Update your system
 - Create a virtual environment folder named `env`
