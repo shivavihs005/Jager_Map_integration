@@ -1,55 +1,56 @@
-# Raspberry Pi GPS Map Integration Walkthrough
+# Jager Dashboard & Map Integration Walkthrough
 
-This document guides you through setting up the Jager Map Integration on a Raspberry Pi with a Neo-6M GPS module.
+This document guides you through using the new Jager Dashboard, including Map Navigation, Manual Joystick Control, and configuration.
 
 ## 1. Hardware Connections
-Connect your Neo-6M GPS module to the Raspberry Pi GPIO header:
-- **VCC** -> 3.3V (Pin 1) or 5V (Pin 2) (Check your module specs, usually 3.3V is safer for logic, but some modules require 5V power)
-- **GND** -> GND (Pin 6)
-- **TX**  -> RXD (GPIO 15 / Pin 10)
-- **RX**  -> TXD (GPIO 14 / Pin 8)
+(Same as previous)
+- **VCC** -> Pin 1/2
+- **GND** -> Pin 6
+- **TX**  -> GPIO 15 (Pin 10)
+- **RX**  -> GPIO 14 (Pin 8)
 
-## 2. Raspberry Pi Configuration
-You must enable the serial port and disable the login shell over serial.
-1. Run `sudo raspi-config`
-2. Select **Interface Options** -> **Serial Port**
-3. **Login shell over serial?** -> **No**
-4. **Hardware enabled?** -> **Yes**
-5. Reboot the Pi: `sudo reboot`
+## 2. Setup & Running
+1.  **Start the Server**:
+    ```bash
+    source env/bin/activate
+    python app.py
+    ```
+2.  **Access Dashboard**: Open `http://<pi-ip>:5000` in your browser.
 
-## 3. Software Setup
-Navigate to the project directory on your Pi and run the setup script.
+## 3. Dashboard Features
 
-```bash
-# Recommended: Run directly with bash
-bash setup_env.sh
-```
+### A. Status Panel
+The top-left panel shows real-time telemetry:
+- **STATUS**: Current motion (STOPPED, FORWARD, TURNING).
+- **MODE**: Current Operation Mode.
+- **GPS**: Connection status (SEARCHING vs LOCKED).
 
-Alternatively, if you want to execute it directly:
-```bash
-chmod +x setup_env.sh
-./setup_env.sh
-```
+### B. Mode Selection
+Use the buttons to switch modes. **Note**: Switching modes will stop the car immediately for safety.
+- **MANUAL**: Full control via Joystick.
+- **SEMI-AUTO**: Map-based navigation.
+- **AUTO**: (Future) Fully autonomous.
 
-This script will:
-- Update your system
-- Create a virtual environment folder named `env`
-- Install `flask`, `pyserial`, and `pynmea2` inside that environment
+### C. Manual Control (Joystick)
+*Only visible in MANUAL mode.*
+- Drag the **Virtual Joystick** to drive.
+- **Up/Down**: Controls Forward/Reverse speed.
+- **Left/Right**: Controls Steering angle.
+- Release to stop.
 
-## 4. Running the Application
-To start the server, execute:
+### D. Semi-Autonomous Navigation (Map)
+*Only visible in SEMI-AUTO mode.*
+1.  **Click on Map**: Drop a destination pin.
+2.  **Calculate Path**: Click the button to generate a route (Blue Line).
+3.  **Start Engine**: Begins autonomous travel to the destination.
+4.  **Emergency Stop**: Click "Status" or "Stop" to halt immediately.
 
-```bash
-source env/bin/activate
-python app.py
-```
-The server will start on port 5000. You can access it from another device on the same WiFi network at `http://<your-pi-ip>:5000`.
+### E. Configuration
+- **Max Speed**: Limits the top speed output to the motors (0-100%).
+- **Max Turn**: Limits the maximum steering angle (0-100%).
+- These settings apply to *both* Manual and Semi-Auto modes.
 
-## 5. How it Works
-- **`gps_reader.py`**: Runs in the background, reading NMEA data from `/dev/serial0`.
-- **`app.py`**: Hosted Flask server. Exposes `/api/location` endpoint.
-- **`script.js`**: Polls `/api/location` every 2 seconds to update the "You are here" marker on the map.
-
-## Troubleshooting
-- **No GPS Fix**: Ensure the GPS module has a clear view of the sky. It may take minutes to get a cold fix. The LED on the module normally blinks when it has a fix.
-- **Permission Denied**: If you get serial permission errors, add your user to the dialout group: `sudo usermod -a -G dialout $USER`, then logout and login.
+## 4. Troubleshooting
+- **Joystick not working?**: Ensure you are in MANUAL mode.
+- **Car not moving?**: Check connections and ensure Max Speed slider is > 0.
+- **Map not routing?**: Ensure the Pi has internet access for OSRM API.

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jager Integrated Map</title>
+    <title>JAGER DASHBOARD</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -13,10 +13,15 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Orbitron:wght@400;500;700&display=swap"
+        rel="stylesheet">
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Nipple.js for Joystick -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 </head>
 
 <body>
@@ -25,43 +30,79 @@
         <!-- Sidebar Controls -->
         <aside class="sidebar">
             <div class="logo">
-                <h1>JAGER DASH</h1>
+                <h1>JAGER <span class="accent">DASH</span></h1>
             </div>
 
-            <div class="controls">
+            <!-- Mode Selector -->
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="MANUAL">MANUAL</button>
+                <button class="mode-btn" data-mode="SEMI_AUTONOMOUS">SEMI-AUTO</button>
+                <button class="mode-btn" data-mode="AUTONOMOUS">AUTO</button>
+            </div>
+
+            <div class="controls-wrapper">
+
+                <!-- Status Card -->
                 <div class="status-card">
-                    <h3>Current Status</h3>
-                    <p id="status-text">Locating you...</p>
-                </div>
-
-                <div class="action-card">
-                    <button id="calc-route-btn" class="primary-btn" disabled>
-                        <span class="icon">➤</span> Calculate Path
-                    </button>
-
-                    <button id="start-travel-btn" class="travel-btn hidden">
-                        <span class="icon">🚀</span> Start Travel
-                    </button>
-                    <button id="stop-travel-btn" class="stop-btn hidden">
-                        <span class="icon">⏹</span> Stop
-                    </button>
-
-                    <button id="reset-btn" class="secondary-btn">
-                        Reset Map
-                    </button>
-                </div>
-
-                <div class="info-card hidden" id="trip-info">
-                    <h3>Trip Details</h3>
-                    <div class="metric">
-                        <span class="label">Distance</span>
-                        <span class="value" id="distance-value">-- km</span>
+                    <div class="status-row">
+                        <span class="label">STATUS</span>
+                        <span class="value" id="motion-state">STOPPED</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="label">MODE</span>
+                        <span class="value accent-text" id="current-mode">MANUAL</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="label">GPS</span>
+                        <span class="value" id="gps-status">WAITING</span>
                     </div>
                 </div>
+
+                <!-- Manual Control (Joystick) -->
+                <div id="manual-controls" class="control-section">
+                    <h3>MANUAL OVERRIDE</h3>
+                    <div id="joystick-zone"></div>
+                    <p class="instruction">Drag to move</p>
+                </div>
+
+                <!-- Semi-Auto Controls (Map Actions) -->
+                <div id="semi-auto-controls" class="control-section hidden">
+                    <h3>NAVIGATION</h3>
+                    <div class="action-card">
+                        <button id="calc-route-btn" class="primary-btn" disabled>
+                            <span class="icon">➤</span> Calculate Path
+                        </button>
+
+                        <button id="start-travel-btn" class="travel-btn hidden">
+                            <span class="icon">🚀</span> Start Engine
+                        </button>
+                        <button id="stop-travel-btn" class="stop-btn hidden">
+                            <span class="icon">⏹</span> Emergency Stop
+                        </button>
+
+                        <button id="reset-btn" class="secondary-btn">
+                            Reset Map
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings (Sliders) -->
+                <div class="settings-card">
+                    <h3>CONFIGURATION</h3>
+                    <div class="slider-group">
+                        <label>Max Speed: <span id="speed-val">100</span>%</label>
+                        <input type="range" id="max-speed" min="0" max="100" value="100">
+                    </div>
+                    <div class="slider-group">
+                        <label>Max Turn: <span id="turn-val">100</span>%</label>
+                        <input type="range" id="max-turn" min="0" max="100" value="100">
+                    </div>
+                </div>
+
             </div>
 
             <div class="footer">
-                <p>Powered by OSRM & Leaflet</p>
+                <p>SYSTEM ONLINE</p>
             </div>
         </aside>
 
@@ -70,7 +111,23 @@
             <div id="map"></div>
             <div class="overlay-loader hidden" id="loader">
                 <div class="spinner"></div>
-                <span>Calculating optimized route...</span>
+                <span>COMPUTING TRAJECTORY...</span>
+            </div>
+
+            <!-- HUD Overlay -->
+            <div class="hud-overlay">
+                <div class="hud-item">
+                    <span class="hud-label">SPEED</span>
+                    <span class="hud-value">0 <small>km/h</small></span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">LATITUDE</span>
+                    <span class="hud-value" id="hud-lat">--</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">LONGITUDE</span>
+                    <span class="hud-value" id="hud-lng">--</span>
+                </div>
             </div>
         </main>
     </div>

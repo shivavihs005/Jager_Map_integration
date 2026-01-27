@@ -3,6 +3,8 @@ import time
 import threading
 from gps_reader import gps_reader
 from car_controller import car
+from state_machine import state_machine, CarMode, MotionState
+
 
 class Navigator:
     def __init__(self):
@@ -40,12 +42,19 @@ class Navigator:
 
     def _nav_loop(self):
         while self.is_navigating:
+            # Check Mode
+            if state_machine.current_mode != CarMode.SEMI_AUTONOMOUS:
+                print("Mode changed. Stopping navigation.")
+                self.stop_navigation()
+                break
+
             current_loc = gps_reader.get_location()
             
             # If no GPS fix, stop and wait
             if current_loc['lat'] == 0 and current_loc['lng'] == 0:
                 print("Waiting for GPS fix...")
                 car.stop()
+                state_machine.update_motion_state(0, 0)
                 time.sleep(1)
                 continue
 
@@ -65,30 +74,21 @@ class Navigator:
                 self.target_location['lat'], self.target_location['lng']
             )
 
-            # NOTE: We don't have a compass! 
-            # We assume the car is moving and calculate heading from previous positions
-            # OR we just blindly steer towards the bearing if we assume "Forward" is north (incorrect)
-            # For a proper rover, you need a Magnetometer (Compass).
-            # HERE, we will implement a simple "Drive and Correct" heuristic 
-            # assuming we know our heading roughly or just drive straight if unknown.
-            
-            # Since we lack a Compass in the specs, we can only approximate heading 
-            # by comparing last known position to current position.
-            # For now, let's just print the needed bearing. 
-            # Without a compass, autonomous steering is EXTREMELY difficult.
-            # I will assume the car drives "Forward" and we correct based on GPS, 
-            # but GPS heading is noisy at low speeds.
-            
             print(f"Dist: {dist:.1f}m | Target Bearing: {bearing:.1f}")
             
-            # CRITICAL: MISSING COMPASS
-            # For this code to work, we need to know the car's current heading (Yaw).
-            # Without it, we don't know if we need to turn Left or Right to match the Target Bearing.
-            # I will set the steering to Center and Drive Forward as a placeholder 
-            # because we cannot intelligently steer without knowing our orientation.
+            # Drive Logic
+            # Limit speed based on StateMachine settings
+            target_speed = min(self.base_speed, state_machine.max_speed)
             
-            car.set_steering(0) # Drive straight
-            car.set_speed(self.base_speed)
+            # Allow max turning if needed? 
+            # For now, just drive straight as per original code since no compass
+            steering_angle = 0 
+            
+            car.set_steering(steering_angle) 
+            car.set_speed(target_speed)
+            
+            # Update State Machine for Dashboard
+            state_machine.update_motion_state(target_speed, steering_angle)
             
             time.sleep(0.5)
 

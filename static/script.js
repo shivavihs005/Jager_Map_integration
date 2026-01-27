@@ -1,244 +1,339 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     const DEFAULT_ZOOM = 13;
-    const OSRM_API_URL = 'https://router.project-osrm.org/route/v1/driving/';
+    const POLLING_INTERVAL = 500; // ms
 
     // --- State ---
     let map;
     let userMarker = null;
     let destinationMarker = null;
     let routePolyline = null;
-    let userLocation = null; // { lat, lng }
-    let destinationLocation = null; // { lat, lng }
+    let userLocation = null;
+    let destinationLocation = null;
+    let currentMode = "MANUAL";
+    let joyManager = null;
 
     // --- DOM Elements ---
-    const statusText = document.getElementById('status-text');
     const calcBtn = document.getElementById('calc-route-btn');
+    const startTravelBtn = document.getElementById('start-travel-btn');
+    const stopTravelBtn = document.getElementById('stop-travel-btn');
     const resetBtn = document.getElementById('reset-btn');
-    const tripInfo = document.getElementById('trip-info');
-    const distanceValue = document.getElementById('distance-value');
     const loader = document.getElementById('loader');
+
+    // Status Elements
+    const motionStateEl = document.getElementById('motion-state');
+    const currentModeEl = document.getElementById('current-mode');
+    const gpsStatusEl = document.getElementById('gps-status');
+    const hudLat = document.getElementById('hud-lat');
+    const hudLng = document.getElementById('hud-lng');
+
+    // Controls
+    const modeBtns = document.querySelectorAll('.mode-btn');
+    const manualControls = document.getElementById('manual-controls');
+    const semiAutoControls = document.getElementById('semi-auto-controls');
+
+    // Sliders
+    const maxSpeedSlider = document.getElementById('max-speed');
+    const maxTurnSlider = document.getElementById('max-turn');
+    const speedVal = document.getElementById('speed-val');
+    const turnVal = document.getElementById('turn-val');
 
     // --- Initialization ---
     initMap();
-    locateUser();
+    initJoystick();
+    setupEventListeners();
+    startPolling();
+    locateUser(); // Start finding GPS
 
     function initMap() {
-        // Initialize with a default view until we find the user
-        map = L.map('map').setView([0, 0], 2);
-
-        // Add Dark Matter Tiles for premium look
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-            subdomains: 'abcd',
-            maxZoom: 20
+        map = L.map('map').setView([20.5937, 78.9629], 5); // Default India view
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Map Click Event -> Pin Destination
-        map.on('click', (e) => {
-            handleMapClick(e.latlng);
+        map.on('click', handleMapClick);
+    }
+
+    function initJoystick() {
+        const zone = document.getElementById('joystick-zone');
+        joyManager = nipplejs.create({
+            zone: zone,
+            mode: 'static',
+            position: { left: '50%', top: '50%' },
+            color: '#00f2ff',
+            size: 150
+        });
+
+        joyManager.on('move', (evt, data) => {
+            if (currentMode !== 'MANUAL') return;
+
+            // data.vector = { x, y } normalized
+            // We want: speed (y), angle (x)
+
+            let speed = data.vector.y * 100;
+            let angle = data.vector.x;
+
+            // Send to API
+            sendControl(speed, angle);
+        });
+
+        joyManager.on('end', () => {
+            if (currentMode !== 'MANUAL') return;
+            sendControl(0, 0);
         });
     }
 
-    function locateUser() {
-        updateStatus('Waiting for GPS fix...');
+    function setupEventListeners() {
+        // Mode Switching
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newMode = btn.dataset.mode;
+                setMode(newMode);
+            });
+        });
 
-        // Poll the server for GPS location every 2 seconds
-        setInterval(async () => {
-            try {
-                const response = await fetch('/api/location');
-                const data = await response.json();
+        // Sliders
+        maxSpeedSlider.addEventListener('input', (e) => {
+            speedVal.textContent = e.target.value;
+            updateConfig();
+        });
 
-                // check if valid data (simple check for 0,0 default)
-                if (data.lat === 0 && data.lng === 0) {
-                    updateStatus('Waiting for GPS lock...', true); // warning color
-                    return;
-                }
+        maxTurnSlider.addEventListener('input', (e) => {
+            turnVal.textContent = e.target.value;
+            updateConfig();
+        });
 
-                userLocation = { lat: data.lat, lng: data.lng };
-
-                // Add/Move User Marker
-                if (userMarker) {
-                    userMarker.setLatLng([data.lat, data.lng]);
-                } else {
-                    // Custom Icon for User
-                    const userIcon = L.divIcon({
-                        className: 'user-pin',
-                        html: `<div style="background-color: #00f2ff; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 15px #00f2ff; border: 3px solid white;"></div>`,
-                        iconSize: [22, 22],
-                        iconAnchor: [11, 11]
-                    });
-
-                    userMarker = L.marker([data.lat, data.lng], { icon: userIcon }).addTo(map);
-                    userMarker.bindPopup("<b>You are here</b>").openPopup();
-
-                    // Center map on first fix
-                    map.setView([data.lat, data.lng], DEFAULT_ZOOM);
-                }
-
-                // If looking at status text, update it unless we have a route
-                if (!destinationLocation) {
-                    updateStatus('GPS Fix Acquired. Pin a destination.');
-                }
-
-            } catch (error) {
-                console.error('Error fetching GPS data:', error);
-                updateStatus('Connection lost to GPS server', true);
-            }
-        }, 2000); // 2 second interval
+        // Map Actions
+        calcBtn.addEventListener('click', calculateRoute);
+        startTravelBtn.addEventListener('click', startTravel);
+        stopTravelBtn.addEventListener('click', stopTravel);
+        resetBtn.addEventListener('click', resetMap);
     }
 
-    function handleMapClick(latlng) {
-        if (!userLocation) {
-            alert("Please wait for your location to be detected first.");
-            return;
-        }
+    // --- API Calls ---
 
-        // Update Destination State
-        destinationLocation = latlng;
+    function setMode(mode) {
+        fetch('/api/mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: mode })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateModeUI(mode);
+                } else {
+                    alert('Failed to switch mode: ' + data.message);
+                }
+            })
+            .catch(err => console.error('Error setting mode:', err));
+    }
 
-        // Visual Feedback (Marker)
-        if (destinationMarker) {
-            destinationMarker.setLatLng(latlng);
-        } else {
-            const destIcon = L.divIcon({
-                className: 'dest-pin',
-                html: `<div style="background-color: #ff4757; width: 20px; height: 20px; transform: rotate(45deg); border-radius: 4px 50% 50% 50%; border: 3px solid white; box-shadow: 0 0 10px #ff4757;"></div>`,
-                iconSize: [26, 26],
-                iconAnchor: [13, 26]
+    function sendControl(speed, angle) {
+        fetch('/api/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ speed: speed, angle: angle })
+        }).catch(err => console.error(err));
+    }
+
+    function updateConfig() {
+        fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                max_speed: maxSpeedSlider.value,
+                max_turn: maxTurnSlider.value
+            })
+        });
+    }
+
+    function updateState() {
+        fetch('/api/state')
+            .then(res => res.json())
+            .then(data => {
+                // Update UI based on backend state
+                motionStateEl.textContent = data.motion_state.replace('_', ' ');
+
+                // Sync UI mode if changed externally
+                if (data.mode !== currentMode) {
+                    updateModeUI(data.mode);
+                }
+            })
+            .catch(console.error);
+
+        // Also get location for HUD
+        fetch('/api/location')
+            .then(res => res.json())
+            .then(loc => {
+                if (mainUserUpdate(loc)) {
+                    gpsStatusEl.textContent = "LOCKED";
+                    gpsStatusEl.style.color = "#2ed573";
+                } else {
+                    gpsStatusEl.textContent = "SEARCHING";
+                    gpsStatusEl.style.color = "#ffa502";
+                }
             });
-            destinationMarker = L.marker(latlng, { icon: destIcon }).addTo(map);
+    }
+
+    function startPolling() {
+        setInterval(updateState, POLLING_INTERVAL);
+    }
+
+    // --- UI Logic ---
+    function updateModeUI(mode) {
+        currentMode = mode;
+        currentModeEl.textContent = mode;
+
+        // Active Button
+        modeBtns.forEach(btn => {
+            if (btn.dataset.mode === mode) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+
+        // Toggle Controls
+        if (mode === 'MANUAL') {
+            manualControls.classList.remove('hidden');
+            semiAutoControls.classList.add('hidden');
+        } else if (mode === 'SEMI_AUTONOMOUS') {
+            manualControls.classList.add('hidden');
+            semiAutoControls.classList.remove('hidden');
+        } else {
+            // Auto
+            manualControls.classList.add('hidden');
+            semiAutoControls.classList.add('hidden');
         }
+    }
 
-        // Enable Button
+    // --- Map Logic ---
+
+    function locateUser() {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], DEFAULT_ZOOM);
+            });
+        }
+    }
+
+    function mainUserUpdate(loc) {
+        if (loc.lat === 0 && loc.lng === 0) return false;
+
+        userLocation = loc;
+        hudLat.textContent = loc.lat.toFixed(6);
+        hudLng.textContent = loc.lng.toFixed(6);
+
+        if (!userMarker) {
+            userMarker = L.marker([loc.lat, loc.lng], {
+                icon: L.divIcon({
+                    className: 'car-icon', // Ensure CSS class exists if needed or default
+                    html: '🚗',
+                    iconSize: [30, 30]
+                })
+            }).addTo(map).bindPopup("Jager");
+            map.setView([loc.lat, loc.lng], DEFAULT_ZOOM);
+        } else {
+            userMarker.setLatLng([loc.lat, loc.lng]);
+        }
+        return true;
+    }
+
+    function handleMapClick(e) {
+        if (currentMode !== 'SEMI_AUTONOMOUS') return;
+
+        if (destinationMarker) {
+            map.removeLayer(destinationMarker);
+        }
+        destinationLocation = e.latlng;
+        destinationMarker = L.marker(e.latlng).addTo(map).bindPopup("Destination").openPopup();
         calcBtn.disabled = false;
-        updateStatus('Destination pinned. Ready to route.');
 
-        // Clear previous route if any
+        // Remove old route
         if (routePolyline) {
             map.removeLayer(routePolyline);
             routePolyline = null;
-            tripInfo.classList.add('hidden');
         }
-    }
-
-    // --- Logic ---
-    calcBtn.addEventListener('click', calculateRoute);
-    startTravelBtn.addEventListener('click', startTravel);
-    stopTravelBtn.addEventListener('click', stopTravel);
-
-    async function startTravel() {
-        if (!destinationLocation) return;
-
         startTravelBtn.classList.add('hidden');
-        stopTravelBtn.classList.remove('hidden');
-        updateStatus('Autonomous Travel Started! 🚀');
-
-        try {
-            await fetch('/api/navigate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(destinationLocation)
-            });
-        } catch (error) {
-            console.error(error);
-            updateStatus('Failed to start navigation', true);
-        }
     }
 
-    async function stopTravel() {
-        startTravelBtn.classList.remove('hidden');
-        stopTravelBtn.classList.add('hidden');
-        updateStatus('Travel Stopped by User');
-
-        try {
-            await fetch('/api/stop', { method: 'POST' });
-        } catch (error) {
-            console.error(error);
+    function calculateRoute() {
+        if (!userLocation || !destinationLocation) {
+            alert("No user location or destination set!");
+            return;
         }
-    }
-
-    async function calculateRoute() {
-        if (!userLocation || !destinationLocation) return;
 
         loader.classList.remove('hidden');
-        updateStatus('Calculating shortest path...');
 
+        // OSRM Routing
         const start = `${userLocation.lng},${userLocation.lat}`;
         const end = `${destinationLocation.lng},${destinationLocation.lat}`;
-        const url = `${OSRM_API_URL}${start};${end}?overview=full&geometries=geojson`;
+        const url = `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`;
 
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (data.code !== 'Ok') {
-                throw new Error('No route found');
-            }
-
-            const route = data.routes[0];
-            const geometry = route.geometry;
-            const distanceMeters = route.distance;
-            const distanceKm = (distanceMeters / 1000).toFixed(2);
-
-            drawRoute(geometry);
-            showStats(distanceKm);
-            updateStatus('Route calculated! Ready to Travel.');
-
-            // Enable Travel Button
-            startTravelBtn.classList.remove('hidden');
-
-        } catch (error) {
-            console.error(error);
-            updateStatus('Error calculating route', true);
-            alert('Could not calculate route. Try a closer point or check connection.');
-        } finally {
-            loader.classList.add('hidden');
-        }
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                loader.classList.add('hidden');
+                if (data.routes && data.routes.length > 0) {
+                    drawRoute(data.routes[0].geometry);
+                    startTravelBtn.classList.remove('hidden');
+                } else {
+                    alert("No route found!");
+                }
+            })
+            .catch(err => {
+                loader.classList.add('hidden');
+                console.error(err);
+                alert("Routing failed.");
+            });
     }
 
     function drawRoute(geojson) {
         if (routePolyline) map.removeLayer(routePolyline);
-
-        // Flip coordinates for Leaflet (GeoJSON is Lng,Lat; Leaflet needs Lat,Lng)
-        // Actually L.geoJSON handles this automatically usually, but if we use raw coordinates:
-        // Leaflet's L.geoJSON handles GeoJSON geometry natively.
-
-        routePolyline = L.geoJSON(geojson, {
-            style: {
-                color: '#00f2ff',
-                weight: 5,
-                opacity: 0.8,
-                lineCap: 'round'
-            }
-        }).addTo(map);
-
-        // Fit bounds to show entire route
-        map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+        // Flip coordinates for Leaflet L.polyline expects [lat, lng], geojson is [lng, lat]
+        const latlngs = geojson.coordinates.map(coord => [coord[1], coord[0]]);
+        routePolyline = L.polyline(latlngs, { color: '#00f2ff', weight: 5, opacity: 0.7 }).addTo(map);
+        map.fitBounds(routePolyline.getBounds());
     }
 
-    function showStats(km) {
-        distanceValue.innerText = `${km} km`;
-        tripInfo.classList.remove('hidden');
+    function startTravel() {
+        if (!destinationLocation) return;
+
+        fetch('/api/navigate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                lat: destinationLocation.lat,
+                lng: destinationLocation.lng
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    startTravelBtn.classList.add('hidden');
+                    stopTravelBtn.classList.remove('hidden');
+                } else {
+                    alert(data.message);
+                }
+            });
     }
 
-    resetBtn.addEventListener('click', () => {
+    function stopTravel() {
+        fetch('/api/stop', { method: 'POST' })
+            .then(res => res.json())
+            .then(() => {
+                stopTravelBtn.classList.add('hidden');
+                startTravelBtn.classList.remove('hidden');
+            });
+    }
+
+    function resetMap() {
         if (destinationMarker) map.removeLayer(destinationMarker);
         if (routePolyline) map.removeLayer(routePolyline);
+        destinationMarker = null;
         destinationLocation = null;
         calcBtn.disabled = true;
-        tripInfo.classList.add('hidden');
-        destinationMarker = null;
-        updateStatus('Map reset. Pin a destination.');
-
-        // Recenter on user
-        if (userLocation) {
-            map.setView([userLocation.lat, userLocation.lng], DEFAULT_ZOOM);
-        }
-    });
-
-    function updateStatus(msg, isError = false) {
-        statusText.innerText = msg;
-        statusText.style.color = isError ? '#ff4757' : '#ffffff';
+        startTravelBtn.classList.add('hidden');
+        stopTravelBtn.classList.add('hidden');
     }
 });

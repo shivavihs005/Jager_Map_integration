@@ -1,6 +1,8 @@
 from flask import Flask, render_template, jsonify, request
 from gps_reader import gps_reader
 from navigator import navigator
+from car_controller import car
+from state_machine import state_machine, CarMode
 
 app = Flask(__name__)
 
@@ -17,8 +19,68 @@ def get_location():
     location = gps_reader.get_location()
     return jsonify(location)
 
+@app.route('/api/state')
+def get_state():
+    return jsonify(state_machine.get_state())
+
+@app.route('/api/mode', methods=['POST'])
+def set_mode():
+    data = request.json
+    mode_str = data.get('mode')
+    if state_machine.set_mode(mode_str):
+        # Stop navigation if switching away from SEMI_AUTONOMOUS
+        if state_machine.current_mode != CarMode.SEMI_AUTONOMOUS:
+            navigator.stop_navigation()
+        # Create a stop command when switching modes for safety
+        car.stop()
+        state_machine.update_motion_state(0, 0)
+        return jsonify({"status": "success", "mode": state_machine.current_mode.value})
+    return jsonify({"status": "error", "message": "Invalid mode"}), 400
+
+@app.route('/api/config', methods=['POST'])
+def set_config():
+    data = request.json
+    max_speed = data.get('max_speed')
+    max_turn = data.get('max_turn')
+    
+    if max_speed is not None and max_turn is not None:
+        state_machine.set_limits(max_speed, max_turn)
+        return jsonify({"status": "success", "message": "Limits updated"})
+    return jsonify({"status": "error", "message": "Missing parameters"}), 400
+
+@app.route('/api/control', methods=['POST'])
+def manual_control():
+    # Only allow manual control in MANUAL or AUTONOMOUS (override)? 
+    # Spec says MANUAL. Let's stick to MANUAL.
+    if state_machine.current_mode != CarMode.MANUAL:
+        # Optional: You might allow override, but for now strict.
+        return jsonify({"status": "error", "message": "Not in MANUAL mode"}), 403
+
+    data = request.json
+    speed_input = float(data.get('speed', 0)) # -100 to 100
+    angle_input = float(data.get('angle', 0)) # -1.0 to 1.0
+
+    # Apply Limits
+    # Max Speed reduces the effective output
+    effective_speed = speed_input * (state_machine.max_speed / 100.0)
+    
+    # Max Turn reduces the effective angle
+    effective_angle = angle_input * (state_machine.max_turn / 100.0)
+
+    # Update Motion State
+    state_machine.update_motion_state(effective_speed, effective_angle)
+    
+    # Drive Car
+    car.set_speed(effective_speed)
+    car.set_steering(effective_angle)
+
+    return jsonify({"status": "success"})
+
 @app.route('/api/navigate', methods=['POST'])
 def start_navigation():
+    if state_machine.current_mode != CarMode.SEMI_AUTONOMOUS:
+         return jsonify({"status": "error", "message": "Switch to Semi-Autonomous Mode first"}), 403
+
     data = request.json
     lat = data.get('lat')
     lng = data.get('lng')
@@ -28,12 +90,17 @@ def start_navigation():
         
     navigator.set_destination(lat, lng)
     navigator.start_navigation()
+    state_machine.update_motion_state(10, 0) # Assume forward moving when navigating starts? 
+    # Although navigator handles speed, we might want to poll navigator for state?
+    # For now, let navigator drive.
     
     return jsonify({"status": "success", "message": "Navigation started"})
 
 @app.route('/api/stop', methods=['POST'])
 def stop_navigation():
     navigator.stop_navigation()
+    car.stop()
+    state_machine.update_motion_state(0, 0)
     return jsonify({"status": "success", "message": "Navigation stopped"})
 
 if __name__ == '__main__':
