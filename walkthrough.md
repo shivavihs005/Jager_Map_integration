@@ -9,7 +9,25 @@ This document guides you through using the new Jager Dashboard, including Map Na
 - **TX**  -> GPIO 15 (Pin 10)
 - **RX**  -> GPIO 14 (Pin 8)
 
-## 2. Setup & Running
+## 2. Software Setup (First Time)
+If you haven't set up the environment yet, run the included setup script:
+
+```bash
+# Make executable
+chmod +x setup_env.sh
+
+# Run setup
+./setup_env.sh
+```
+
+This script will:
+1. Update your system
+2. Create a virtual environment `env`
+3. Install dependencies (`flask`, `pyserial`, `pynmea2`, etc.)
+
+**Important**: Ensure Serial Port is enabled in `sudo raspi-config` > Interfacing Options > Serial.
+
+## 3. Setup & Running
 1.  **Start the Server**:
     ```bash
     source env/bin/activate
@@ -17,7 +35,7 @@ This document guides you through using the new Jager Dashboard, including Map Na
     ```
 2.  **Access Dashboard**: Open `http://<pi-ip>:5000` in your browser.
 
-## 3. Dashboard Features
+## 4. Dashboard Features
 
 ### A. Status Panel
 The top-left panel shows real-time telemetry:
@@ -50,7 +68,7 @@ Use the buttons to switch modes. **Note**: Switching modes will stop the car imm
 - **Max Turn**: Limits the maximum steering angle (0-100%).
 - These settings apply to *both* Manual and Semi-Auto modes.
 
-## 4. Troubleshooting
+## 5. Troubleshooting
 - **Joystick not working?**: Ensure you are in MANUAL mode.
 - **Car not moving?**: Check connections and ensure Max Speed slider is > 0.
 - **Map not routing?**: Ensure the Pi has internet access for OSRM API.

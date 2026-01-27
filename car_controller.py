@@ -1,4 +1,27 @@
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+    MOCK_GPIO = False
+except ImportError:
+    print("RPi.GPIO not found. Using Mock GPIO.")
+    MOCK_GPIO = True
+    # create a dummy GPIO class to prevent NameError later if not careful, 
+    # though we mainly use the flag to skip logic.
+    class MockGPIO:
+        BCM = 'BCM'
+        OUT = 'OUT'
+        HIGH = 'HIGH'
+        LOW = 'LOW'
+        def setmode(self, mode): pass
+        def setwarnings(self, flag): pass
+        def setup(self, pin, mode): pass
+        def output(self, pin, state): pass
+        def cleanup(self): pass
+        class PWM:
+            def __init__(self, pin, freq): pass
+            def start(self, duty): pass
+            def ChangeDutyCycle(self, duty): pass
+            def stop(self): pass
+    GPIO = MockGPIO()
 import time
 import threading
 
@@ -16,13 +39,19 @@ class CarController:
         self.current_angle = 90
         self.last_servo_update = 0
         
-        try:
-            self._setup_gpio()
-        except RuntimeError:
-            print("GPIO Error: Likely not running on a Pi. Hardware control disabled.")
+        if MOCK_GPIO:
+            print("Using Mock GPIO Driver (Import Failed).")
             self.mock_mode = True
+            # Setup dummy objects so logic doesn't crash on undefined vars
+            self._setup_gpio()
         else:
-            self.mock_mode = False
+            try:
+                self._setup_gpio()
+            except RuntimeError:
+                print("GPIO Error: Likely not running on a Pi. Hardware control disabled.")
+                self.mock_mode = True
+            else:
+                self.mock_mode = False
 
     def _setup_gpio(self):
         GPIO.setmode(GPIO.BCM)
