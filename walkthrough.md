@@ -3,11 +3,27 @@
 This document guides you through using the new Jager Dashboard, including Map Navigation, Manual Joystick Control, and configuration.
 
 ## 1. Hardware Connections
-(Same as previous)
-- **VCC** -> Pin 1/2
-- **GND** -> Pin 6
-- **TX**  -> GPIO 15 (Pin 10)
-- **RX**  -> GPIO 14 (Pin 8)
+Connect the following components to your Raspberry Pi 4 GPIO:
+
+### A. Neo-6M GPS Module (UART)
+*Connect to the Pi's Serial Port (`/dev/serial0`)*
+- **VCC** -> 3.3V (Pin 1)
+- **GND** -> GND (Pin 6)
+- **RX**  -> GPIO 14 (TXD) - *Note: GPS RX connects to Pi TX*
+- **TX**  -> GPIO 15 (RXD) - *Note: GPS TX connects to Pi RX*
+
+### B. DC Motor Driver (L298N or similar)
+- **R_EN** (Right Enable) -> GPIO 23
+- **L_EN** (Left Enable)  -> GPIO 24
+- **RPWM** (Forward)      -> GPIO 13
+- **LPWM** (Backward)     -> GPIO 12
+- **GND** -> Ground
+- **VCC** -> External Motor Power (e.g., 12V LiPo)
+
+### C. Steering Servo
+- **Signal** -> GPIO 18 (PWM)
+- **VCC** -> 5V (from external BEC/Battery usually, NOT Pi directly for high torque)
+- **GND** -> Ground (Common Ground with Pi)
 
 ## 2. Software Setup (First Time)
 If you haven't set up the environment yet, run the included setup script:
@@ -49,12 +65,11 @@ Use the buttons to switch modes. **Note**: Switching modes will stop the car imm
 - **SEMI-AUTO**: Map-based navigation.
 - **AUTO**: (Future) Fully autonomous.
 
-### C. Manual Control (Joystick)
+### C. Manual Control (Split)
 *Only visible in MANUAL mode.*
-- Drag the **Virtual Joystick** to drive.
-- **Up/Down**: Controls Forward/Reverse speed.
-- **Left/Right**: Controls Steering angle.
-- Release to stop.
+- **Steering**: Use the LEFT Joystick to steer Left/Right.
+- **Throttle**: Use the RIGHT Buttons. Hold **FWD** to go forward, **REV** to reverse.
+- Release buttons to stop.
 
 ### D. Semi-Autonomous Navigation (Map)
 *Only visible in SEMI-AUTO mode.*

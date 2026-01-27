@@ -58,11 +58,19 @@
                     </div>
                 </div>
 
-                <!-- Manual Control (Joystick) -->
+                <!-- Manual Control (Split) -->
                 <div id="manual-controls" class="control-section">
-                    <h3>MANUAL OVERRIDE</h3>
-                    <div id="joystick-zone"></div>
-                    <p class="instruction">Drag to move</p>
+                    <h3>MANUAL CONTROL</h3>
+                    <div class="split-controls">
+                        <div class="steer-zone" id="joystick-zone">
+                            <div class="zone-label">STEER</div>
+                        </div>
+                        <div class="drive-zone">
+                            <button id="btn-forward" class="drive-btn">▲<br>FWD</button>
+                            <button id="btn-backward" class="drive-btn">▼<br>REV</button>
+                        </div>
+                    </div>
+                    <p class="instruction">Joystick to Steer • Buttons to Drive</p>
                 </div>
 
                 <!-- Semi-Auto Controls (Map Actions) -->
