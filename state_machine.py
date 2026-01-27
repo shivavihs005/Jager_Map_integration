@@ -18,7 +18,7 @@ class StateMachine:
     def __init__(self):
         self.current_mode = CarMode.MANUAL
         self.current_motion_state = MotionState.STOPPED
-        self.max_speed = 100  # Percentage 0-100
+        self.max_speed = 50  # Percentage 0-100
         self.max_turn = 100   # Percentage 0-100 (Where 100 is full range)
 
     def set_mode(self, mode_str):

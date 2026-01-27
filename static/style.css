@@ -1,353 +1,306 @@
+/* Base & Layout */
 :root {
-    --bg-dark: #0f1115;
-    --sidebar-bg: rgba(15, 17, 21, 0.95);
-    --accent-color: #00f2ff;
-    --accent-hover: #00c8d4;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a5b0;
-    --glass-border: rgba(0, 242, 255, 0.15);
-    --font-main: 'Outfit', sans-serif;
-    --font-display: 'Orbitron', sans-serif;
-    --danger: #ff4757;
-    --success: #2ed573;
-    --warning: #ffa502;
-    --glass: rgba(255, 255, 255, 0.03);
+    --primary: #00f2ff;
+    --secondary: #7000ff;
+    --bg-dark: #0a0a12;
+    --glass: rgba(20, 20, 30, 0.7);
+    --border: 1px solid rgba(255, 255, 255, 0.1);
+    --text-glow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
 }
 
 body {
-    font-family: var(--font-main);
-    background-color: var(--bg-dark);
-    color: var(--text-primary);
-    overflow: hidden;
+    background: var(--bg-dark);
+    color: #fff;
     height: 100vh;
-    width: 100vw;
-}
-
-.app-container {
-    display: flex;
-    height: 100%;
-    width: 100%;
-}
-
-/* Sidebar Styling */
-.sidebar {
-    width: 400px;
-    background: var(--sidebar-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid var(--glass-border);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 2rem;
-    z-index: 1000;
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+/* HUD Header */
+header {
+    height: 60px;
+    background: var(--glass);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: var(--border);
+    backdrop-filter: blur(10px);
+}
+
+.brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary);
+    text-shadow: var(--text-glow);
+    letter-spacing: 2px;
+}
+
+.status-bar {
+    display: flex;
+    gap: 20px;
+    font-size: 0.9rem;
+}
+
+.status-item span {
+    font-weight: bold;
+    color: #fff;
+    margin-left: 5px;
+}
+
+/* Main Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    height: calc(100vh - 60px);
+}
+
+/* Sidebar Controls */
+.sidebar {
+    background: rgba(10, 10, 15, 0.9);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-right: var(--border);
     overflow-y: auto;
 }
 
-.logo h1 {
-    font-family: var(--font-display);
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: #fff;
-    margin-bottom: 2rem;
-    text-transform: uppercase;
-    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+.panel {
+    background: rgba(255, 255, 255, 0.05);
+    border: var(--border);
+    padding: 15px;
+    border-radius: 8px;
 }
 
-.accent {
-    color: var(--accent-color);
+h3 {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 /* Mode Selector */
 .mode-selector {
     display: flex;
-    gap: 10px;
-    margin-bottom: 2rem;
-    background: var(--glass);
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.3);
     padding: 5px;
-    border-radius: 12px;
-    border: 1px solid var(--glass-border);
+    border-radius: 5px;
 }
 
 .mode-btn {
     flex: 1;
-    background: transparent;
+    background: none;
     border: none;
-    color: var(--text-secondary);
-    padding: 10px;
-    border-radius: 8px;
-    font-family: var(--font-display);
-    font-size: 0.7rem;
+    color: #666;
+    padding: 10px 5px;
     cursor: pointer;
-    transition: all 0.3s;
-    letter-spacing: 1px;
+    font-weight: bold;
+    transition: 0.3s;
+    border-radius: 4px;
 }
 
 .mode-btn.active {
-    background: var(--accent-color);
+    background: var(--primary);
     color: #000;
-    font-weight: 700;
-    box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+    box-shadow: 0 0 15px var(--primary);
 }
 
-.controls-wrapper {
+/* Control Panels */
+.control-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-}
-
-/* Cards */
-.status-card,
-.action-card,
-.settings-card,
-.control-section {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 1.5rem;
-}
-
-.control-section h3,
-.settings-card h3 {
-    font-family: var(--font-display);
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--glass-border);
-    padding-bottom: 0.5rem;
-}
-
-/* Status Rows */
-.status-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.8rem;
-    font-size: 0.9rem;
-}
-
-.status-row:last-child {
-    margin-bottom: 0;
-}
-
-.status-row .label {
-    color: var(--text-secondary);
-}
-
-.status-row .value {
-    font-family: var(--font-display);
-    font-weight: 700;
-}
-
-.accent-text {
-    color: var(--accent-color);
-    text-shadow: 0 0 5px rgba(0, 242, 255, 0.4);
-}
-
-/* Base Buttons */
-.primary-btn,
-.travel-btn,
-.stop-btn,
-.secondary-btn {
-    width: 100%;
-    padding: 1rem;
-    margin-bottom: 0.8rem;
-    border: none;
-    border-radius: 8px;
-    font-family: var(--font-display);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.primary-btn {
-    background: var(--accent-color);
-    color: #000;
-    font-weight: 700;
-}
-
-.primary-btn:hover:not(:disabled) {
-    background: var(--accent-hover);
-    box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
-}
-
-.primary-btn:disabled {
-    background: #333;
-    color: #666;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-.travel-btn {
-    background: var(--success);
-    color: #000;
-}
-
-.travel-btn:hover {
-    box-shadow: 0 0 20px rgba(46, 213, 115, 0.4);
-}
-
-.stop-btn {
-    background: var(--danger);
-    color: #fff;
-}
-
-.stop-btn:hover {
-    box-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
-}
-
-.secondary-btn {
-    background: transparent;
-    border: 1px solid var(--text-secondary);
-    color: var(--text-secondary);
-}
-
-.secondary-btn:hover {
-    border-color: #fff;
-    color: #fff;
-}
-
-/* Joystick Zone */
-#joystick-zone {
-    width: 100%;
-    height: 200px;
+    min-height: 250px;
+    border: 1px dashed #333;
+    border-radius: 10px;
     position: relative;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    border: 1px dashed var(--glass-border);
 }
 
-.instruction {
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
-}
-
-/* Sliders */
-.slider-group {
-    margin-bottom: 1.2rem;
-}
-
-.slider-group label {
-    display: block;
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
-}
-
-input[type=range] {
-    width: 100%;
-    height: 6px;
-    background: #333;
-    border-radius: 3px;
-    outline: none;
-    -webkit-appearance: none;
-}
-
-input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    background: var(--accent-color);
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 0 10px var(--accent-color);
-}
-
-/* Visibility */
 .hidden {
     display: none !important;
 }
 
-/* Map & HUD */
-.map-wrapper {
-    flex: 1;
+/* Split Controls Layout */
+.split-controls {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    gap: 10px;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px;
+}
+
+/* Steering Zone */
+.steer-zone {
+    width: 140px;
+    height: 140px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    border: 1px solid var(--primary);
     position: relative;
-    background: #1a1a1a;
+}
+
+.zone-label {
+    position: absolute;
+    top: -25px;
+    width: 100%;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--primary);
+}
+
+/* Drive Zone (Buttons) */
+.drive-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.drive-btn {
+    width: 80px;
+    height: 60px;
+    background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+    border: 1px solid #444;
+    color: var(--primary);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+    transition: all 0.1s;
+    user-select: none;
+}
+
+.drive-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    background: var(--primary);
+    color: #000;
+}
+
+.instructions {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+/* Sliders */
+.slider-group {
+    margin-bottom: 15px;
+}
+
+.slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+
+input[type=range] {
+    width: 100%;
+    accent-color: var(--primary);
+}
+
+/* Action Buttons */
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    background: var(--secondary);
+    border: none;
+    color: #fff;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: 0.3s;
+}
+
+.action-btn:hover {
+    text-shadow: 0 0 10px #fff;
+    box-shadow: 0 0 20px var(--secondary);
+}
+
+.action-btn:disabled {
+    background: #333;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-stop {
+    background: #ff4757;
+}
+
+.btn-secondary {
+    background: #2f3542;
+}
+
+/* Map Area */
+.map-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 
 #map {
-    height: 100%;
     width: 100%;
-    z-index: 1;
+    height: 100%;
 }
 
-.hud-overlay {
+.loader {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1000;
     pointer-events: none;
 }
 
-.hud-item {
-    background: rgba(15, 17, 21, 0.8);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
+/* Map Overlays (HUD) */
+.hud-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 999;
+    display: flex;
+    gap: 15px;
+}
+
+.hud-card {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    border-left: 3px solid var(--primary);
     padding: 10px 15px;
-    border-radius: 8px;
-    border-left: 3px solid var(--accent-color);
-    min-width: 140px;
+    color: #fff;
+    min-width: 100px;
 }
 
 .hud-label {
-    display: block;
     font-size: 0.7rem;
-    color: var(--text-secondary);
-    font-family: var(--font-display);
-    margin-bottom: 2px;
+    color: #aaa;
+    text-transform: uppercase;
 }
 
 .hud-value {
-    display: block;
     font-size: 1.2rem;
-    font-weight: 700;
-    color: #fff;
-    font-family: var(--font-display);
-}
-
-.overlay-loader {
-    position: absolute;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    padding: 15px 30px;
-    border-radius: 30px;
-    color: var(--accent-color);
-    z-index: 999;
-    border: 1px solid var(--accent-color);
-    font-family: var(--font-display);
-    letter-spacing: 2px;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
-}
-
-.footer {
-    margin-top: auto;
-    font-size: 0.7rem;
-    color: #444;
-    text-align: center;
-    letter-spacing: 3px;
+    font-weight: bold;
+    margin-top: 2px;
 }
