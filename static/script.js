@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     const DEFAULT_ZOOM = 13;
     const POLLING_INTERVAL = 500; // ms
-    const DEFAULT_SPEED_LIMIT = 50;
 
     // --- State ---
     let map;
@@ -13,10 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let destinationLocation = null;
     let currentMode = "MANUAL";
     let joyManager = null;
-
-    // Control State
-    let currentSpeed = 0;
-    let currentAngle = 0;
 
     // --- DOM Elements ---
     const calcBtn = document.getElementById('calc-route-btn');
@@ -36,8 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const modeBtns = document.querySelectorAll('.mode-btn');
     const manualControls = document.getElementById('manual-controls');
     const semiAutoControls = document.getElementById('semi-auto-controls');
-    const forwardBtn = document.getElementById('btn-forward');
-    const backwardBtn = document.getElementById('btn-backward');
 
     // Sliders
     const maxSpeedSlider = document.getElementById('max-speed');
@@ -46,20 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const turnVal = document.getElementById('turn-val');
 
     // --- Initialization ---
-
-    // Set Default Limit Logic
-    maxSpeedSlider.value = DEFAULT_SPEED_LIMIT;
-    speedVal.textContent = DEFAULT_SPEED_LIMIT;
-
     initMap();
     initJoystick();
     setupEventListeners();
-    updateConfig(); // Sync initial slider
     startPolling();
-    locateUser();
+    locateUser(); // Start finding GPS
 
     function initMap() {
-        map = L.map('map').setView([20.5937, 78.9629], 5);
+        map = L.map('map').setView([20.5937, 78.9629], 5); // Default India view
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
@@ -74,23 +61,25 @@ document.addEventListener('DOMContentLoaded', () => {
             mode: 'static',
             position: { left: '50%', top: '50%' },
             color: '#00f2ff',
-            size: 100, // Smaller for steer only
-            lockX: true // Only allow X movement
+            size: 150
         });
 
         joyManager.on('move', (evt, data) => {
             if (currentMode !== 'MANUAL') return;
 
-            // Only care about Angle (X)
-            // vector.x is between -1 (left) and 1 (right)
-            currentAngle = data.vector.x;
-            sendControl();
+            // data.vector = { x, y } normalized
+            // We want: speed (y), angle (x)
+
+            let speed = data.vector.y * 100;
+            let angle = data.vector.x;
+
+            // Send to API
+            sendControl(speed, angle);
         });
 
         joyManager.on('end', () => {
             if (currentMode !== 'MANUAL') return;
-            currentAngle = 0;
-            sendControl();
+            sendControl(0, 0);
         });
     }
 
@@ -114,61 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
             updateConfig();
         });
 
-        // Drive Buttons (Hold to drive)
-        forwardBtn.addEventListener('mousedown', () => {
-            if (currentMode === 'MANUAL') {
-                currentSpeed = 100; // Will be scaled by backend max_speed
-                sendControl();
-            }
-        });
-        forwardBtn.addEventListener('mouseup', () => stopMotor());
-        forwardBtn.addEventListener('mouseleave', () => stopMotor());
-
-        // Touch support for mobile
-        forwardBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (currentMode === 'MANUAL') {
-                currentSpeed = 100;
-                sendControl();
-            }
-        });
-        forwardBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            stopMotor();
-        });
-
-        backwardBtn.addEventListener('mousedown', () => {
-            if (currentMode === 'MANUAL') {
-                currentSpeed = -100;
-                sendControl();
-            }
-        });
-        backwardBtn.addEventListener('mouseup', () => stopMotor());
-        backwardBtn.addEventListener('mouseleave', () => stopMotor());
-
-        backwardBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (currentMode === 'MANUAL') {
-                currentSpeed = -100;
-                sendControl();
-            }
-        });
-        backwardBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            stopMotor();
-        });
-
-
         // Map Actions
         calcBtn.addEventListener('click', calculateRoute);
         startTravelBtn.addEventListener('click', startTravel);
         stopTravelBtn.addEventListener('click', stopTravel);
         resetBtn.addEventListener('click', resetMap);
-    }
-
-    function stopMotor() {
-        currentSpeed = 0;
-        sendControl();
     }
 
     // --- API Calls ---
@@ -190,12 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error('Error setting mode:', err));
     }
 
-    function sendControl() {
-        // Send composite state
+    function sendControl(speed, angle) {
         fetch('/api/control', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ speed: currentSpeed, angle: currentAngle })
+            body: JSON.stringify({ speed: speed, angle: angle })
         }).catch(err => console.error(err));
     }
 
@@ -214,14 +152,17 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch('/api/state')
             .then(res => res.json())
             .then(data => {
+                // Update UI based on backend state
                 motionStateEl.textContent = data.motion_state.replace('_', ' ');
 
+                // Sync UI mode if changed externally
                 if (data.mode !== currentMode) {
                     updateModeUI(data.mode);
                 }
             })
             .catch(console.error);
 
+        // Also get location for HUD
         fetch('/api/location')
             .then(res => res.json())
             .then(loc => {
@@ -244,11 +185,13 @@ document.addEventListener('DOMContentLoaded', () => {
         currentMode = mode;
         currentModeEl.textContent = mode;
 
+        // Active Button
         modeBtns.forEach(btn => {
             if (btn.dataset.mode === mode) btn.classList.add('active');
             else btn.classList.remove('active');
         });
 
+        // Toggle Controls
         if (mode === 'MANUAL') {
             manualControls.classList.remove('hidden');
             semiAutoControls.classList.add('hidden');
@@ -256,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
             manualControls.classList.add('hidden');
             semiAutoControls.classList.remove('hidden');
         } else {
+            // Auto
             manualControls.classList.add('hidden');
             semiAutoControls.classList.add('hidden');
         }
@@ -283,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!userMarker) {
             userMarker = L.marker([loc.lat, loc.lng], {
                 icon: L.divIcon({
-                    className: 'car-icon',
+                    className: 'car-icon', // Ensure CSS class exists if needed or default
                     html: '🚗',
                     iconSize: [30, 30]
                 })
@@ -305,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         destinationMarker = L.marker(e.latlng).addTo(map).bindPopup("Destination").openPopup();
         calcBtn.disabled = false;
 
+        // Remove old route
         if (routePolyline) {
             map.removeLayer(routePolyline);
             routePolyline = null;
@@ -320,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loader.classList.remove('hidden');
 
+        // OSRM Routing
         const start = `${userLocation.lng},${userLocation.lat}`;
         const end = `${destinationLocation.lng},${destinationLocation.lat}`;
         const url = `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`;
@@ -344,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function drawRoute(geojson) {
         if (routePolyline) map.removeLayer(routePolyline);
+        // Flip coordinates for Leaflet L.polyline expects [lat, lng], geojson is [lng, lat]
         const latlngs = geojson.coordinates.map(coord => [coord[1], coord[0]]);
         routePolyline = L.polyline(latlngs, { color: '#00f2ff', weight: 5, opacity: 0.7 }).addTo(map);
         map.fitBounds(routePolyline.getBounds());
