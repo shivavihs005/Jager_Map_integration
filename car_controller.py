@@ -38,6 +38,7 @@ class CarController:
         self.current_speed = 0
         self.current_angle = 90
         self.last_servo_update = 0
+        self.servo_timer = None
         
         if MOCK_GPIO:
             print("Using Mock GPIO Driver (Import Failed).")
@@ -125,8 +126,16 @@ class CarController:
         
         self.servo_pwm.ChangeDutyCycle(duty)
         
-        # Optional: Turn off servo signal after short delay to save power/jitter
-        # threading.Timer(0.5, lambda: self.servo_pwm.ChangeDutyCycle(0)).start()
+        # Prevent Jitter: Turn off servo signal after short delay
+        if hasattr(self, 'servo_timer') and self.servo_timer:
+            self.servo_timer.cancel()
+        
+        def stop_servo_signal():
+            if not self.mock_mode:
+                self.servo_pwm.ChangeDutyCycle(0)
+        
+        self.servo_timer = threading.Timer(0.5, stop_servo_signal)
+        self.servo_timer.start()
 
     def stop(self):
         self.set_speed(0)
