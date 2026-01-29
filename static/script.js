@@ -6,13 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State ---
     let map;
+    let tileLayer;
     let userMarker = null;
     let destinationMarker = null;
     let routePolyline = null;
     let userLocation = null;
     let destinationLocation = null;
-    let currentMode = "MANUAL";
+    let currentMode = "SEMI_AUTONOMOUS";
     let joyManager = null;
+    let isDarkTheme = true;
 
     // Control State
     let currentSpeed = 0;
@@ -24,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopTravelBtn = document.getElementById('stop-travel-btn');
     const resetBtn = document.getElementById('reset-btn');
     const loader = document.getElementById('loader');
+    const themeToggle = document.getElementById('theme-toggle');
 
     // Status Elements
     const motionStateEl = document.getElementById('motion-state');
@@ -58,13 +61,32 @@ document.addEventListener('DOMContentLoaded', () => {
     startPolling();
     locateUser();
 
+    // Set initial UI for mode
+    updateModeUI("SEMI_AUTONOMOUS");
+
     function initMap() {
         map = L.map('map').setView([20.5937, 78.9629], 5);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+
+        // Default to Dark Theme
+        const darkUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        const lightUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+        tileLayer = L.tileLayer(darkUrl, {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
         }).addTo(map);
 
         map.on('click', handleMapClick);
+
+        // Theme Toggle Logic
+        themeToggle.addEventListener('click', () => {
+            isDarkTheme = !isDarkTheme;
+            document.body.classList.toggle('light-theme', !isDarkTheme);
+
+            // Switch Map Tiles
+            tileLayer.setUrl(isDarkTheme ? darkUrl : lightUrl);
+        });
     }
 
     function initJoystick() {
