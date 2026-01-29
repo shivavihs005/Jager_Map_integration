@@ -114,9 +114,9 @@ class CarController:
         #   else = (val + 1) * 180
         
         # We'll use a smoother mapping for autonomous control
-        # Map -1..1 to 0..180 degrees
-        # -1 -> 0 deg, 0 -> 90 deg, 1 -> 180 deg
-        target_angle = (val + 1) * 90
+        # Map -1..1 to 5..175 degrees (avoid stuck at 0/180)
+        # -1 -> 5 deg, 0 -> 90 deg, 1 -> 175 deg
+        target_angle = 90 + (val * 85)
         
         # Convert to Duty Cycle
         # Standard Servo: 2.5% (0deg) to 12.5% (180deg) usually
