@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Hardware Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/gps_test.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>GPS Hardware Test</h1>
+        <div class="status-panel">
+            <p><strong>Status:</strong> <span id="status">Connecting...</span></p>
+            <p><strong>Latitude:</strong> <span id="lat">0.000000</span></p>
+            <p><strong>Longitude:</strong> <span id="lng">0.000000</span></p>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/gps_test.js') }}"></script>
+</body>
+
+</html>

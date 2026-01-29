@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motors Hardware Test</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/motors_test.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Motors Hardware Test</h1>
+
+        <div class="status-panel">
+            <p><strong>Last Command:</strong> <span id="status">Waiting...</span></p>
+        </div>
+
+        <div class="controls-container">
+            <div class="joystick-area">
+                <h3>Joystick Control</h3>
+                <div id="joystick-zone"></div>
+            </div>
+
+            <div class="buttons-area">
+                <h3>Manual Buttons</h3>
+                <div class="button-grid">
+                    <div></div>
+                    <button class="btn" onmousedown="sendCommand(50, 0)" onmouseup="stopCar()">FWD</button>
+                    <div></div>
+
+                    <button class="btn" onmousedown="sendCommand(0, -1)" onmouseup="stopCar()">LEFT</button>
+                    <button class="btn stop-btn" onclick="stopCar()">STOP</button>
+                    <button class="btn" onmousedown="sendCommand(0, 1)" onmouseup="stopCar()">RIGHT</button>
+
+                    <div></div>
+                    <button class="btn" onmousedown="sendCommand(-50, 0)" onmouseup="stopCar()">REV</button>
+                    <div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nipple.js for Joystick -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <script src="{{ url_for('static', filename='js/motors_test.js') }}"></script>
+</body>
+
+</html>

@@ -2,6 +2,55 @@
 
 This document guides you through using the new Jager Dashboard, including Map Navigation, Manual Joystick Control, and configuration.
 
+
+## 0. Headless Pi Setup (Optional)
+If you are setting up a fresh Raspberry Pi without a monitor/keyboard:
+
+1.  **Enable SSH**: Create an empty file named `ssh` (no extension) in the boot partition of the SD card.
+2.  **Configure Wi-Fi**: Create a file named `wpa_supplicant.conf` in the boot partition with the following content:
+    ```conf
+    country=IN
+    ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+    update_config=1
+
+    network={
+        ssid="YOUR_PHONE_HOTSPOT_NAME"
+        psk="YOUR_HOTSPOT_PASSWORD"
+        key_mgmt=WPA-PSK
+    }
+    ```
+
+### Initial Git Setup
+After connecting to the Pi via SSH, run the following commands to set up the project:
+
+```bash
+# Install Git
+sudo apt update && sudo apt install git -y
+
+# Configure Git (replace with your actual name and email)
+git config --global user.name "shivavihs005"
+git config --global user.email "your.email@example.com"
+
+# Create project folder
+mkdir -p ~/my-projects
+cd ~/my-projects
+
+# Clone your repository
+git clone https://github.com/shivavihs005/Jager_Map_integration.git
+
+# Enter the repository
+cd Jager_Map_integration
+
+# To pull updates later
+git pull origin main 
+
+# Check status
+git status
+
+# List files in the repository
+ls -la
+```
+
 ## 1. Hardware Connections
 Connect the following components to your Raspberry Pi 4 GPIO:
 
@@ -87,3 +136,28 @@ Use the buttons to switch modes. **Note**: Switching modes will stop the car imm
 - **Joystick not working?**: Ensure you are in MANUAL mode.
 - **Car not moving?**: Check connections and ensure Max Speed slider is > 0.
 - **Map not routing?**: Ensure the Pi has internet access for OSRM API.
+
+## 6. Hardware Testing (Diagnostics)
+If you want to test the hardware components separately without running the full dashboard, use the dedicated test apps in `hardware_tests/`.
+
+### A. GPS Test
+1.  **Run the App**:
+    ```bash
+    python hardware_tests/GPS_app.py
+    ```
+2.  **Open Browser**: Go to `http://<pi-ip>:5001`
+3.  **Verify**:
+    -   Status should change from "SEARCHING" to "LOCKED" when GPS fix is acquired.
+    -   Your location should appear on the map.
+
+### B. Motors Test
+1.  **Run the App**:
+    ```bash
+    python hardware_tests/Motors_app.py
+    ```
+2.  **Open Browser**: Go to `http://<pi-ip>:5002`
+3.  **Verify**:
+    -   Use the on-screen Joystick or Buttons to drive.
+    -   Check if motors spin correctly (Forward/Reverse).
+    -   Check if steering servo moves correctly (Left/Right).
+
