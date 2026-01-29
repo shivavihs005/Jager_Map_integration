@@ -4,7 +4,8 @@
     --accent-color: #00f2ff;
     --accent-hover: #00c8d4;
     --text-primary: #ffffff;
-    --text-secondary: #a0a5b0;
+    --text-secondary: #e0e0e0;
+    /* Lighter for better visibility */
     --glass-border: rgba(0, 242, 255, 0.15);
     --font-main: 'Outfit', sans-serif;
     --font-display: 'Orbitron', sans-serif;
@@ -21,7 +22,8 @@ body.light-theme {
     /* Blue for light mode */
     --accent-hover: #0056b3;
     --text-primary: #1a1a1a;
-    --text-secondary: #555555;
+    --text-secondary: #333333;
+    /* Darker for better visibility */
     --glass-border: rgba(0, 0, 0, 0.1);
     --glass: rgba(0, 0, 0, 0.05);
 }
@@ -67,7 +69,7 @@ body {
     font-size: 2rem;
     font-weight: 700;
     letter-spacing: 2px;
-    color: #fff;
+    color: var(--text-primary);
     margin-bottom: 2rem;
     text-transform: uppercase;
     text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
@@ -255,8 +257,8 @@ body {
 }
 
 .secondary-btn:hover {
-    border-color: #fff;
-    color: #fff;
+    border-color: var(--text-primary);
+    color: var(--text-primary);
 }
 
 /* Split Manual Controls (New Layout) */
