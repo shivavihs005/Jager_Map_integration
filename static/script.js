@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let routePolyline = null;
     let userLocation = null;
     let destinationLocation = null;
-    let currentMode = "SEMI_AUTONOMOUS";
+    let currentMode = "AUTONOMOUS";
     let joyManager = null;
     let isDarkTheme = true;
 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     locateUser();
 
     // Set initial UI for mode
-    updateModeUI("SEMI_AUTONOMOUS");
+    updateModeUI("AUTONOMOUS");
 
     function initMap() {
         map = L.map('map').setView([20.5937, 78.9629], 5);
@@ -276,12 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'MANUAL') {
             manualControls.classList.remove('hidden');
             semiAutoControls.classList.add('hidden');
-        } else if (mode === 'SEMI_AUTONOMOUS') {
+        } else if (mode === 'AUTONOMOUS') {
             manualControls.classList.add('hidden');
             semiAutoControls.classList.remove('hidden');
-        } else {
-            manualControls.classList.add('hidden');
-            semiAutoControls.classList.add('hidden');
         }
     }
 
@@ -320,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleMapClick(e) {
-        if (currentMode !== 'SEMI_AUTONOMOUS') return;
+        if (currentMode !== 'AUTONOMOUS') return;
 
         if (destinationMarker) {
             map.removeLayer(destinationMarker);

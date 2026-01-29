@@ -29,7 +29,7 @@ def set_mode():
     mode_str = data.get('mode')
     if state_machine.set_mode(mode_str):
         # Stop navigation if switching away from SEMI_AUTONOMOUS
-        if state_machine.current_mode != CarMode.SEMI_AUTONOMOUS:
+        if state_machine.current_mode != CarMode.AUTONOMOUS:
             navigator.stop_navigation()
         # Create a stop command when switching modes for safety
         car.stop()
@@ -78,7 +78,7 @@ def manual_control():
 
 @app.route('/api/navigate', methods=['POST'])
 def start_navigation():
-    if state_machine.current_mode != CarMode.SEMI_AUTONOMOUS:
+    if state_machine.current_mode != CarMode.AUTONOMOUS:
          return jsonify({"status": "error", "message": "Switch to Semi-Autonomous Mode first"}), 403
 
     data = request.json

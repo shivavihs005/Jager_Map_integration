@@ -43,7 +43,7 @@ class Navigator:
     def _nav_loop(self):
         while self.is_navigating:
             # Check Mode
-            if state_machine.current_mode != CarMode.SEMI_AUTONOMOUS:
+            if state_machine.current_mode != CarMode.AUTONOMOUS:
                 print("Mode changed. Stopping navigation.")
                 self.stop_navigation()
                 break
