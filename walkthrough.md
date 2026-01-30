@@ -19,6 +19,16 @@ If you are setting up a fresh Raspberry Pi without a monitor/keyboard:
         key_mgmt=WPA-PSK
     }
     ```
+# Update and upgrade system
+sudo apt update && sudo apt upgrade -y
+
+# Enable VNC Server
+sudo raspi-config nonint do_vnc 0
+
+# Set a default resolution for VNC (recommended for headless)
+sudo raspi-config nonint do_resolution 2 16
+    
+
 
 ### Initial Git Setup
 After connecting to the Pi via SSH, run the following commands to set up the project:
