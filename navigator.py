@@ -80,9 +80,36 @@ class Navigator:
             # Limit speed based on StateMachine settings
             target_speed = min(self.base_speed, state_machine.max_speed)
             
-            # Allow max turning if needed? 
-            # For now, just drive straight as per original code since no compass
-            steering_angle = 0 
+            # Calculate Heading Error
+            # Compass/GPS Headings are 0-360 clockwise from North
+            # Bearing is also 0-360
+            
+            # If GPS heading is 0, we might be stationary or have no fix for heading.
+            # In that case, we can't reliably steer by heading.
+            current_heading = current_loc.get('heading', 0.0)
+            
+            # Calculate difference
+            heading_error = bearing - current_heading
+            
+            # Normalize to [-180, 180]
+            # e.g. target 350, current 10. error = 340. 340 > 180 -> 340 - 360 = -20 (Turn Left)
+            if heading_error > 180:
+                heading_error -= 360
+            elif heading_error < -180:
+                heading_error += 360
+                
+            print(f"Dist: {dist:.1f}m | Hdg: {current_heading:.1f} | Tgt: {bearing:.1f} | Err: {heading_error:.1f}")
+
+            # P-Controller for Steering
+            # Error of 90 degrees should probably be max turn?
+            # Let's say max turn (1.0) at 45 degrees error?
+            # kp = 1.0 / 45.0 = 0.022
+            # Let's try kp = 0.02
+            
+            steering_signal = heading_error * 0.03 # Tunable
+            
+            # Clamp to [-1.0, 1.0]
+            steering_angle = max(-1.0, min(1.0, steering_signal))
             
             car.set_steering(steering_angle) 
             car.set_speed(target_speed)

@@ -2,3 +2,4 @@ flask
 pyserial
 pynmea2
 RPi.GPIO
+requests

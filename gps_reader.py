@@ -2,12 +2,13 @@ import serial
 import time
 import threading
 import pynmea2
+from map_matcher import map_matcher
 
 class GPSReader:
     def __init__(self, port='/dev/serial0', baudrate=9600):
         self.port = port
         self.baudrate = baudrate
-        self.current_location = {'lat': 0.0, 'lng': 0.0}
+        self.current_location = {'lat': 0.0, 'lng': 0.0, 'heading': 0.0, 'speed': 0.0}
         self.running = False
         self.thread = None
 
@@ -39,10 +40,42 @@ class GPSReader:
                     try:
                         msg = pynmea2.parse(line)
                         if msg.latitude and msg.longitude:
-                            self.current_location = {
-                                'lat': msg.latitude,
-                                'lng': msg.longitude
-                            }
+                            lat = msg.latitude
+                            lng = msg.longitude
+                            
+                            # Attempt Map Matching
+                            snapped = map_matcher.match_to_road(lat, lng)
+                            if snapped:
+                                lat, lng = snapped
+                            
+                            self.current_location['lat'] = lat
+                            self.current_location['lng'] = lng
+                    except pynmea2.ParseError:
+                        continue
+                elif line.startswith('$GPRMC') or line.startswith('$GNRMC'):
+                    try:
+                        msg = pynmea2.parse(line)
+                        if msg.latitude and msg.longitude:
+                             lat = msg.latitude
+                             lng = msg.longitude
+                             
+                             # Attempt Map Matching
+                             snapped = map_matcher.match_to_road(lat, lng)
+                             if snapped:
+                                 lat, lng = snapped
+                                 
+                             self.current_location['lat'] = lat
+                             self.current_location['lng'] = lng
+                        
+                        # Extract Heading (True Course) and Speed
+                        if hasattr(msg, 'true_course') and msg.true_course is not None:
+                             self.current_location['heading'] = float(msg.true_course)
+                        else:
+                             self.current_location['heading'] = 0.0 # Default if not moving/available
+
+                        if hasattr(msg, 'spd_over_grnd') and msg.spd_over_grnd is not None:
+                             self.current_location['speed'] = float(msg.spd_over_grnd) # Knots usually
+                        
                     except pynmea2.ParseError:
                         continue
             except Exception as e:
