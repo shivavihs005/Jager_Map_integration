@@ -9,6 +9,7 @@ class DisplayManager:
         self.rows = rows
         try:
             self.lcd = CharLCD(i2c_expander='PCF8574', address=address, port=port, cols=cols, rows=rows, charmap='A00')
+            self.lcd.backlight_enabled = False # User requested backlight OFF
             self.clear()
             self.write_line("Display Init", 0)
             print("LCD Initialized successfully")
