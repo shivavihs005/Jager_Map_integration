@@ -80,8 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
         map.on('click', handleMapClick);
 
         // Theme Toggle Logic
-        themeToggle.addEventListener('click', () => {
-            isDarkTheme = !isDarkTheme;
+        themeToggle.addEventListener('change', (e) => {
+            isDarkTheme = e.target.checked;
             document.body.classList.toggle('light-theme', !isDarkTheme);
 
             // Switch Map Tiles
