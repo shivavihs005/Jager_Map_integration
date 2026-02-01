@@ -15,6 +15,7 @@ echo "Installing dependencies..."
 source env/bin/activate
 pip install -r requirements.txt
 pip install requests
+pip install RPLCD smbus2
 
 # Enable Serial Port (Instructional)
 echo "---------------------------------------------------"

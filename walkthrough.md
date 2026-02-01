@@ -117,6 +117,10 @@ This script will:
 1. Update your system
 2. Create a virtual environment `env`
 3. Install dependencies (`flask`, `pyserial`, `pynmea2`, etc.)
+4. Install LCD libraries (`RPLCD`, `smbus2`)
+    ```bash
+    pip install RPLCD smbus2
+    ```
 
 **Important**: Ensure Serial Port is enabled in `sudo raspi-config` > Interfacing Options > Serial.
 
