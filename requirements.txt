@@ -3,3 +3,5 @@ pyserial
 pynmea2
 RPi.GPIO
 requests
+RPLCD
+smbus2

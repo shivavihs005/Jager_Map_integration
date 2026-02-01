@@ -81,6 +81,14 @@ Connect the following components to your Raspberry Pi 4 GPIO:
 - **RX**  -> GPIO 14 (TXD) - *Note: GPS RX connects to Pi TX*
 - **TX**  -> GPIO 15 (RXD) - *Note: GPS TX connects to Pi RX*
 
+### B. I2C Display (OLED/LCD)
+*Connect to the Pi's I2C interface*
+- **VCC** -> 3.3V (Pin 1)
+- **GND** -> GND (Pin 9)
+- **SDA** -> GPIO 2 (Pin 3)
+- **SCL** -> GPIO 3 (Pin 5)
+
+
 ### B. DC Motor Driver (L298N or similar)
 - **R_EN** (Right Enable) -> GPIO 23
 - **L_EN** (Left Enable)  -> GPIO 24
@@ -137,6 +145,12 @@ This script will:
 
     sudo systemctl enable jager.service
     sudo systemctl start jager.service
+    
+    # Check status to confirm it's running
+    sudo systemctl status jager.service
+
+    # Check WiFi connection logs
+    sudo cat /var/log/wifi-autoconnect.log
     
 
 2.  **Access Dashboard**: Open `http://<pi-ip>:5000` in your browser.

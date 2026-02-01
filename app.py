@@ -3,6 +3,7 @@ from gps_reader import gps_reader
 from navigator import navigator
 from car_controller import car
 from state_machine import state_machine, CarMode
+from display_manager import display_manager
 
 app = Flask(__name__)
 
@@ -115,6 +116,11 @@ if __name__ == '__main__':
         print(f" Server is running on your network!")
         print(f" Access it from other devices at: http://{ip_address}:5000")
         print(f"--------------------------------------------------")
+        # Update LCD
+        try:
+            display_manager.display_ip()
+        except:
+            pass
     except Exception:
         print("Could not detect IP address. Check 'ifconfig' or 'hostname -I'")
 
