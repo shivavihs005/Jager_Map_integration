@@ -36,6 +36,21 @@ class DisplayManager:
         if not self.lcd:
             return
         
+        # 1. Show Connection Status briefly
+        try:
+            # Try to get SSID (works on Linux/Pi)
+            import subprocess
+            ssid = subprocess.check_output(['iwgetid', '-r']).decode('utf-8').strip()
+            self.clear()
+            self.write_line("WiFi Connected!", 0)
+            self.write_line(f"SSID: {ssid}", 1)
+            time.sleep(3) # Show for 3 seconds
+        except Exception:
+            self.clear()
+            self.write_line("WiFi Connected!", 0)
+            time.sleep(2)
+
+        # 2. Get IP
         ip = "No IP"
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -45,6 +60,7 @@ class DisplayManager:
         except Exception:
             pass
             
+        # 3. Show IP Continuously
         self.clear()
         self.write_line("Status: Running", 0)
         self.write_line(f"IP:{ip}", 1)
