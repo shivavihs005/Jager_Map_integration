@@ -9,7 +9,7 @@ class DisplayManager:
         self.rows = rows
         try:
             self.lcd = CharLCD(i2c_expander='PCF8574', address=address, port=port, cols=cols, rows=rows, charmap='A00')
-            self.lcd.backlight_enabled = False # User requested backlight OFF
+            self.lcd.backlight_enabled = True # User requested backlight ON
             self.clear()
             self.write_line("Display Init", 0)
             print("LCD Initialized successfully")
@@ -20,7 +20,7 @@ class DisplayManager:
         if self.lcd:
             try:
                 self.lcd.clear()
-                self.lcd.backlight_enabled = True # Force OFF
+                self.lcd.backlight_enabled = True # Force ON
             except Exception:
                 pass
 
@@ -31,7 +31,7 @@ class DisplayManager:
                 text = text[:self.cols]
                 self.lcd.cursor_pos = (row, 0)
                 self.lcd.write_string(text)
-                self.lcd.backlight_enabled = False # Force OFF
+                self.lcd.backlight_enabled = True # Force ON
             except Exception:
                 pass
 

@@ -68,13 +68,22 @@ class GPSReader:
                              self.current_location['lng'] = lng
                         
                         # Extract Heading (True Course) and Speed
-                        if hasattr(msg, 'true_course') and msg.true_course is not None:
-                             self.current_location['heading'] = float(msg.true_course)
-                        else:
-                             self.current_location['heading'] = 0.0 # Default if not moving/available
-
+                        speed = 0.0
                         if hasattr(msg, 'spd_over_grnd') and msg.spd_over_grnd is not None:
-                             self.current_location['speed'] = float(msg.spd_over_grnd) # Knots usually
+                             speed = float(msg.spd_over_grnd) # Knots
+                             self.current_location['speed'] = speed
+                        
+                        # Heading Hold Logic
+                        # Only update heading if we have significant speed (> 1.0 knot approx 0.5 m/s)
+                        # This prevents "spinning" when stopped due to GPS noise.
+                        if hasattr(msg, 'true_course') and msg.true_course is not None:
+                            heading = float(msg.true_course)
+                            if speed > 1.0:
+                                self.current_location['heading'] = heading
+                            # Else: Keep previous heading (Heading Hold)
+                        else:
+                            # If no course data, keep previous
+                            pass
                         
                     except pynmea2.ParseError:
                         continue

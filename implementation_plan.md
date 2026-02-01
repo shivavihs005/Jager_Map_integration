@@ -41,4 +41,21 @@ The goal is to transform the GPS-tracking application into an autonomous driving
 ## User Review Required
 > [!IMPORTANT]
 > **Safety Warning**: Autonomous motors can be dangerous. Ensure the car is on a stand (wheels off ground) for first tests.
-> **Compass**: This implementation uses "GPS-only" heading provided by change in position. It will not know which way it faces until it starts moving.
+
+## Navigation Improvements
+
+### [GPS & Heading]
+#### [MODIFY] [gps_reader.py](file:///d:/Project_Jager/GithHub_Codes/GoogleMap/Jager_Map_integration/gps_reader.py)
+- Implement "Low Speed Heading Hold": Do not update heading from GPS if speed is close to zero (e.g., < 0.5 m/s aka 1 knot), to prevent spinning when stopped.
+- Persist the last known valid heading.
+
+### [Map Matching]
+#### [MODIFY] [map_matcher.py](file:///d:/Project_Jager/GithHub_Codes/GoogleMap/Jager_Map_integration/map_matcher.py)
+- Improve error handling to not silently fail, but log (at debug level).
+- Verify OSRM API connectivity and retry logic.
+- (Future) If OSRM provides bearing, use it. For now, rely on snapped coordinates to stabilize bearing calculation in `Navigator`.
+
+### [Navigator]
+#### [MODIFY] [navigator.py](file:///d:/Project_Jager/GithHub_Codes/GoogleMap/Jager_Map_integration/navigator.py)
+- Enable Heading Hold Logic (rely on `gps_reader` improvements).
+- Tune steering PID gains if necessary.

@@ -101,12 +101,9 @@ class Navigator:
             print(f"Dist: {dist:.1f}m | Hdg: {current_heading:.1f} | Tgt: {bearing:.1f} | Err: {heading_error:.1f}")
 
             # P-Controller for Steering
-            # Error of 90 degrees should probably be max turn?
-            # Let's say max turn (1.0) at 45 degrees error?
-            # kp = 1.0 / 45.0 = 0.022
-            # Let's try kp = 0.02
-            
-            steering_signal = heading_error * 0.03 # Tunable
+            # Error of 25 degrees will now trigger max turn (1.0)
+            # This makes it more aggressive to align with road.
+            steering_signal = heading_error * 0.04 # Tuned from 0.03
             
             # Clamp to [-1.0, 1.0]
             steering_angle = max(-1.0, min(1.0, steering_signal))

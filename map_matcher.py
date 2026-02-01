@@ -32,12 +32,12 @@ class MapMatcher:
                     # API returns [lng, lat]
                     snapped_lng, snapped_lat = location
                     return snapped_lat, snapped_lng
-        except requests.RequestException as e:
+        except requests.RequestException:
             # Silently fail on connection errors (common if offline)
-            # print(f"Map Matching Error: {e}") 
-            pass
+            return None
         except Exception as e:
-            print(f"Map Matching Unexpected Error: {e}")
+            print(f"[MapMatcher] Unexpected Error: {e}")
+            return None
             
         return None
 
