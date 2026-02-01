@@ -14,6 +14,7 @@ python3 -m venv env
 echo "Installing dependencies..."
 source env/bin/activate
 pip install -r requirements.txt
+pip install requests
 
 # Enable Serial Port (Instructional)
 echo "---------------------------------------------------"
