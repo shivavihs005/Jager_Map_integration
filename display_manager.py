@@ -20,6 +20,7 @@ class DisplayManager:
         if self.lcd:
             try:
                 self.lcd.clear()
+                self.lcd.backlight_enabled = True # Force OFF
             except Exception:
                 pass
 
@@ -30,6 +31,7 @@ class DisplayManager:
                 text = text[:self.cols]
                 self.lcd.cursor_pos = (row, 0)
                 self.lcd.write_string(text)
+                self.lcd.backlight_enabled = False # Force OFF
             except Exception:
                 pass
 
