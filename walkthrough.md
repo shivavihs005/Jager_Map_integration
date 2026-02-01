@@ -39,7 +39,7 @@ sudo apt update && sudo apt install git -y
 
 # Configure Git (replace with your actual name and email)
 git config --global user.name "shivavihs005"
-git config --global user.email "your.email@example.com"
+git config --global user.email "[EMAIL_ADDRESS]"
 
 # Create project folder
 mkdir -p ~/my-projects
@@ -56,6 +56,16 @@ git pull origin main
 
 # Check status
 git status
+
+# Stage changes
+git add .
+
+# Commit changes
+git commit -m "Your commit message"
+
+# Push to origin
+git push origin main
+
 
 # List files in the repository
 ls -la
@@ -108,6 +118,27 @@ This script will:
     source env/bin/activate
     python app.py
     ```
+    sudo tee /etc/systemd/system/jager.service <<EOF
+    [Unit]
+    Description=Jager Dashboard
+    After=network.target
+
+    [Service]
+    ExecStart=$(pwd)/env/bin/python $(pwd)/app.py
+    WorkingDirectory=$(pwd)
+    StandardOutput=inherit
+    StandardError=inherit
+    Restart=always
+    User=$USER
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+    sudo systemctl enable jager.service
+    sudo systemctl start jager.service
+    
+
 2.  **Access Dashboard**: Open `http://<pi-ip>:5000` in your browser.
 
 ## 4. Dashboard Features
