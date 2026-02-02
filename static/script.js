@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     const DEFAULT_ZOOM = 13;
     const POLLING_INTERVAL = 500; // ms
-    const DEFAULT_SPEED_LIMIT = 50;
+    const DEFAULT_SPEED_LIMIT = 20;
 
     // --- State ---
     let map;
@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const gpsStatusEl = document.getElementById('gps-status');
     const hudLat = document.getElementById('hud-lat');
     const hudLng = document.getElementById('hud-lng');
+    const hudSpeed = document.getElementById('hud-speed');
+
+    let hasZooomedToCar = false;
 
     // Controls
     const modeBtns = document.querySelectorAll('.mode-btn');
@@ -55,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     speedVal.textContent = DEFAULT_SPEED_LIMIT;
 
     initMap();
-    initJoystick();
+    // Delay Joystick init to ensure layout is stable
+    setTimeout(initJoystick, 500);
     setupEventListeners();
     updateConfig(); // Sync initial slider
     startPolling();
@@ -276,6 +280,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'MANUAL') {
             manualControls.classList.remove('hidden');
             semiAutoControls.classList.add('hidden');
+            // Reset Angle when entering Manual
+            currentAngle = 0;
+            if (joyManager) {
+                // creating a new instance might be better but for now let's just ensure no residual values
+                // sending 0 command
+                sendControl();
+            }
         } else if (mode === 'AUTONOMOUS') {
             manualControls.classList.add('hidden');
             semiAutoControls.classList.remove('hidden');
@@ -300,6 +311,9 @@ document.addEventListener('DOMContentLoaded', () => {
         userLocation = loc;
         hudLat.textContent = loc.lat.toFixed(6);
         hudLng.textContent = loc.lng.toFixed(6);
+        if (loc.speed !== undefined) {
+            hudSpeed.innerHTML = `${loc.speed.toFixed(1)} <small>km/h</small>`;
+        }
 
         if (!userMarker) {
             userMarker = L.marker([loc.lat, loc.lng], {
@@ -310,8 +324,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             }).addTo(map).bindPopup("Jager");
             map.setView([loc.lat, loc.lng], DEFAULT_ZOOM);
+            hasZooomedToCar = true;
         } else {
             userMarker.setLatLng([loc.lat, loc.lng]);
+            // Auto-follow if not zoomed yet or if tracking mode (optional)
+            // For now, only zoom once on first lock
+            if (!hasZooomedToCar) {
+                map.setView([loc.lat, loc.lng], DEFAULT_ZOOM);
+                hasZooomedToCar = true;
+            }
         }
         return true;
     }
@@ -363,22 +384,33 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    let currentRouteGeoJSON = null;
+
     function drawRoute(geojson) {
         if (routePolyline) map.removeLayer(routePolyline);
+        currentRouteGeoJSON = geojson; // Store for navigation
         const latlngs = geojson.coordinates.map(coord => [coord[1], coord[0]]);
         routePolyline = L.polyline(latlngs, { color: '#00f2ff', weight: 5, opacity: 0.7 }).addTo(map);
         map.fitBounds(routePolyline.getBounds());
     }
 
     function startTravel() {
-        if (!destinationLocation) return;
+        if (!destinationLocation || !currentRouteGeoJSON) {
+            alert("No route to follow!");
+            return;
+        }
+
+        // Convert OSRM [lng, lat] to [{lat, lng}]
+        const waypoints = currentRouteGeoJSON.coordinates.map(coord => ({
+            lat: coord[1],
+            lng: coord[0]
+        }));
 
         fetch('/api/navigate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                lat: destinationLocation.lat,
-                lng: destinationLocation.lng
+                waypoints: waypoints
             })
         })
             .then(res => res.json())

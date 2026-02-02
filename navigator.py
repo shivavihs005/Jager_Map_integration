@@ -8,7 +8,8 @@ from state_machine import state_machine, CarMode, MotionState
 
 class Navigator:
     def __init__(self):
-        self.target_location = None # {lat, lng}
+        self.waypoints = [] # List of {lat, lng}
+        self.current_waypoint_index = 0
         self.is_navigating = False
         self.thread = None
         self.arrival_threshold_meters = 5.0
@@ -16,17 +17,24 @@ class Navigator:
         # PID / Control Parameters
         self.base_speed = 40 # Duty Cycle %
         self.kp = 1.0 # Proportional Gain for steering
+        
+        # Deadband to prevent jitter
+        self.steering_deadband = 5.0 # Degrees
 
-    def set_destination(self, lat, lng):
-        self.target_location = {'lat': float(lat), 'lng': float(lng)}
-        print(f"Destination set to: {self.target_location}")
+    def set_route(self, waypoints):
+        """
+        waypoints: list of dicts {'lat': float, 'lng': float}
+        """
+        self.waypoints = waypoints
+        self.current_waypoint_index = 0
+        print(f"Route set with {len(waypoints)} waypoints.")
 
     def start_navigation(self):
         if self.is_navigating:
             return
         
-        if not self.target_location:
-            print("No destination set.")
+        if not self.waypoints or len(self.waypoints) == 0:
+            print("No route set.")
             return
 
         self.is_navigating = True
@@ -58,63 +66,90 @@ class Navigator:
                 time.sleep(1)
                 continue
 
-            dist = self.haversine_distance(
-                current_loc['lat'], current_loc['lng'],
-                self.target_location['lat'], self.target_location['lng']
-            )
-
-            if dist < self.arrival_threshold_meters:
-                print("Arrived at destination!")
+            # Check if we have waypoints left
+            if self.current_waypoint_index >= len(self.waypoints):
+                print("Destination Reached (End of Route)!")
                 self.stop_navigation()
                 break
 
-            # Calculate Bearing
-            bearing = self.calculate_bearing(
+            target_wp = self.waypoints[self.current_waypoint_index]
+            
+            dist = self.haversine_distance(
                 current_loc['lat'], current_loc['lng'],
-                self.target_location['lat'], self.target_location['lng']
+                target_wp['lat'], target_wp['lng']
             )
 
-            print(f"Dist: {dist:.1f}m | Target Bearing: {bearing:.1f}")
+            # Waypoint Switching Logic
+            if dist < self.arrival_threshold_meters:
+                print(f"Reached Waypoint {self.current_waypoint_index}")
+                self.current_waypoint_index += 1
+                if self.current_waypoint_index >= len(self.waypoints):
+                    print("Destination Reached!")
+                    self.stop_navigation()
+                    break
+                # Update target immediately
+                target_wp = self.waypoints[self.current_waypoint_index]
+
+            # Calculate Bearing to current target
+            bearing = self.calculate_bearing(
+                current_loc['lat'], current_loc['lng'],
+                target_wp['lat'], target_wp['lng']
+            )
+
+            # --- Straight Road Detection ---
+            # Look ahead: if the bearing to the NEXT waypoint is very similar to current target bearing,
+            # we are on a straight road.
+            straight_road_assist = False
+            if self.current_waypoint_index + 1 < len(self.waypoints):
+                next_wp = self.waypoints[self.current_waypoint_index + 1]
+                next_bearing = self.calculate_bearing(
+                    target_wp['lat'], target_wp['lng'],
+                    next_wp['lat'], next_wp['lng']
+                )
+                
+                # Check variance
+                diff = abs(bearing - next_bearing)
+                if diff > 180: diff = 360 - diff
+                
+                if diff < 10: # 10 degree tolerance for "straight"
+                    straight_road_assist = True
+            
             
             # Drive Logic
-            # Limit speed based on StateMachine settings
             target_speed = min(self.base_speed, state_machine.max_speed)
             
-            # Calculate Heading Error
-            # Compass/GPS Headings are 0-360 clockwise from North
-            # Bearing is also 0-360
-            
-            # If GPS heading is 0, we might be stationary or have no fix for heading.
-            # In that case, we can't reliably steer by heading.
             current_heading = current_loc.get('heading', 0.0)
             
-            # Calculate difference
+            # Calculate Heading Error
             heading_error = bearing - current_heading
             
             # Normalize to [-180, 180]
-            # e.g. target 350, current 10. error = 340. 340 > 180 -> 340 - 360 = -20 (Turn Left)
             if heading_error > 180:
                 heading_error -= 360
             elif heading_error < -180:
                 heading_error += 360
-                
-            print(f"Dist: {dist:.1f}m | Hdg: {current_heading:.1f} | Tgt: {bearing:.1f} | Err: {heading_error:.1f}")
+            
+            # Straight Assist Logic: If on straight road and error is small, force 0 steering
+            if straight_road_assist and abs(heading_error) < 10:
+                print(f"Straight Assist Active. Bearing: {bearing:.1f}")
+                steering_angle = 0
+            else:
+                 # Deadband
+                if abs(heading_error) < self.steering_deadband:
+                    heading_error = 0
 
-            # P-Controller for Steering
-            # Error of 25 degrees will now trigger max turn (1.0)
-            # This makes it more aggressive to align with road.
-            steering_signal = heading_error * 0.04 # Tuned from 0.03
+                # P-Controller
+                steering_signal = heading_error * 0.04 
+                steering_angle = max(-1.0, min(1.0, steering_signal))
             
-            # Clamp to [-1.0, 1.0]
-            steering_angle = max(-1.0, min(1.0, steering_signal))
-            
+            print(f"WP:{self.current_waypoint_index} | Dist:{dist:.1f}m | Hdg:{current_heading:.1f} | Tgt:{bearing:.1f} | Str:{steering_angle:.2f}")
+
             car.set_steering(steering_angle) 
             car.set_speed(target_speed)
             
-            # Update State Machine for Dashboard
             state_machine.update_motion_state(target_speed, steering_angle)
             
-            time.sleep(0.5)
+            time.sleep(0.1) # Faster update rate
 
     def haversine_distance(self, lat1, lon1, lat2, lon2):
         R = 6371000 # Radius of Earth in meters

@@ -68,17 +68,17 @@ class GPSReader:
                              self.current_location['lng'] = lng
                         
                         # Extract Heading (True Course) and Speed
-                        speed = 0.0
+                        speed_knots = 0.0
                         if hasattr(msg, 'spd_over_grnd') and msg.spd_over_grnd is not None:
-                             speed = float(msg.spd_over_grnd) # Knots
-                             self.current_location['speed'] = speed
+                             speed_knots = float(msg.spd_over_grnd)
+                             self.current_location['speed'] = speed_knots * 1.852 # Convert Knots to km/h
                         
                         # Heading Hold Logic
-                        # Only update heading if we have significant speed (> 1.0 knot approx 0.5 m/s)
+                        # Only update heading if we have significant speed (> 0.5 knot approx 0.25 m/s)
                         # This prevents "spinning" when stopped due to GPS noise.
                         if hasattr(msg, 'true_course') and msg.true_course is not None:
                             heading = float(msg.true_course)
-                            if speed > 1.0:
+                            if speed_knots > 0.5:
                                 self.current_location['heading'] = heading
                             # Else: Keep previous heading (Heading Hold)
                         else:

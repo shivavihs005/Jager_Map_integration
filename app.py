@@ -83,17 +83,21 @@ def start_navigation():
          return jsonify({"status": "error", "message": "Switch to Semi-Autonomous Mode first"}), 403
 
     data = request.json
-    lat = data.get('lat')
-    lng = data.get('lng')
+    waypoints = data.get('waypoints')
     
-    if lat is None or lng is None:
-        return jsonify({"status": "error", "message": "Missing coordinates"}), 400
+    # Support legacy single destination
+    if not waypoints:
+        lat = data.get('lat')
+        lng = data.get('lng')
+        if lat is not None and lng is not None:
+            waypoints = [{'lat': lat, 'lng': lng}]
+    
+    if not waypoints:
+        return jsonify({"status": "error", "message": "Missing waypoints"}), 400
         
-    navigator.set_destination(lat, lng)
+    navigator.set_route(waypoints)
     navigator.start_navigation()
-    state_machine.update_motion_state(10, 0) # Assume forward moving when navigating starts? 
-    # Although navigator handles speed, we might want to poll navigator for state?
-    # For now, let navigator drive.
+    state_machine.update_motion_state(10, 0)
     
     return jsonify({"status": "success", "message": "Navigation started"})
 
