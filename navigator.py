@@ -52,6 +52,34 @@ class Navigator:
         car.stop()
         print("Navigation Stopped")
 
+    def calculate_total_remaining_distance(self, current_loc, target_index):
+        """
+        Calculates the total distance from current location to the target waypoint,
+        plus the distance of all subsequent segments.
+        """
+        if target_index >= len(self.waypoints):
+            return 0.0
+
+        total_dist = 0.0
+        
+        # 1. Distance from current location to current target
+        target_wp = self.waypoints[target_index]
+        total_dist += self.haversine_distance(
+            current_loc['lat'], current_loc['lng'],
+            target_wp['lat'], target_wp['lng']
+        )
+        
+        # 2. Distance for remaining segments
+        for i in range(target_index, len(self.waypoints) - 1):
+            p1 = self.waypoints[i]
+            p2 = self.waypoints[i+1]
+            total_dist += self.haversine_distance(
+                p1['lat'], p1['lng'],
+                p2['lat'], p2['lng']
+            )
+            
+        return total_dist
+
     def _nav_loop(self):
         while self.is_navigating:
             # Check Mode
@@ -82,6 +110,9 @@ class Navigator:
                 current_loc['lat'], current_loc['lng'],
                 target_wp['lat'], target_wp['lng']
             )
+            
+            # Calculate Total Remaining Distance
+            total_remaining = self.calculate_total_remaining_distance(current_loc, self.current_waypoint_index)
 
             # Waypoint Switching Logic
             if dist < self.arrival_threshold_meters:
@@ -133,16 +164,22 @@ class Navigator:
             elif heading_error < -180:
                 heading_error += 360
             
-            # Straight Assist Logic: If on straight road, suppress steering unless error is large
+            # Straight Assist Logic: FORCE LOCK unless major error
             if straight_road_assist:
-                 # Aggressive Deadband for straight roads
-                if abs(heading_error) < 15: # 15 degree deadband on straight roads
-                    print(f"Straight Assist Active. Bearing: {bearing:.1f}")
-                    steering_angle = 0
+                 # SUPER AGGRESSIVE Deadband for straight roads
+                 # If we are supposed to go straight, IGNORE GPS wandering unless we are WAY off.
+                if abs(heading_error) < 45: # 45 degree tolerance! Keep it straight!
+                    # print(f"Straight Lock. Err: {heading_error:.1f}")
+                    steering_angle = 0.0 # Strict Center
+                    # Check if we need to force reset smoothed value to 0 to prevent drift
+                    if abs(self.current_steering) > 0.1:
+                        self.current_steering = 0.0 
                 else:
-                    # Damped steering if drifting too much
-                    steering_signal = heading_error * 0.02 # Lower gain
-                    steering_angle = max(-1.0, min(1.0, steering_signal))
+                    # We are drifting way too much, gentle correction
+                    steering_signal = heading_error * 0.01 # Very Low gain to avoid snap
+                    steering_angle = max(-0.5, min(0.5, steering_signal)) # Cap steering
+                
+                target_steering = steering_angle
             else:
                  # Normal Turns logic
                  # Deadband
@@ -163,7 +200,7 @@ class Navigator:
             # Use the smoothed value
             final_steering = self.current_steering
             
-            print(f"WP:{self.current_waypoint_index} | Dist:{dist:.1f}m | Hdg:{current_heading:.1f} | Tgt:{bearing:.1f} | Str:{final_steering:.2f}")
+            print(f"WP:{self.current_waypoint_index} | Dist:{dist:.1f}m | Tot:{total_remaining:.1f}m | Hdg:{current_heading:.1f} | Tgt:{bearing:.1f} | Str:{final_steering:.2f} | {'LOCK' if straight_road_assist and abs(heading_error) < 45 else 'NAV'}")
 
             car.set_steering(final_steering) 
             car.set_speed(target_speed)
