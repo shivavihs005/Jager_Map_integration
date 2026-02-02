@@ -115,6 +115,24 @@
         <button id="btn-south" class="dir-btn" onclick="turn('SOUTH')">S</button>
     </div>
 
+    <div class="calibration-panel"
+        style="margin-top: 50px; background: #222; padding: 20px; border-radius: 10px; border: 1px solid #444;">
+        <h3>Calibration</h3>
+
+        <div class="control-group">
+            <label>Servo Trim (Left/Right Offset): <span id="trim-val">0</span>°</label>
+            <input type="range" min="-30" max="30" value="0" step="1" id="servo-trim">
+        </div>
+
+        <div class="control-group" style="margin-top: 15px;">
+            <label>Heading Offset (Compass Correction): <span id="offset-val">0</span>°</label>
+            <input type="range" min="-180" max="180" value="0" step="1" id="heading-offset">
+        </div>
+
+        <button class="dir-btn" style="width: 100%; height: 50px; margin-top: 20px; font-size: 1rem;"
+            onclick="updateCalibration()">Apply Offset</button>
+    </div>
+
     <script>
         function turn(direction) {
             // Highlight button
@@ -126,6 +144,25 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ direction: direction })
             });
+        }
+
+        const trimInput = document.getElementById('servo-trim');
+        const offsetInput = document.getElementById('heading-offset');
+        const trimVal = document.getElementById('trim-val');
+        const offsetVal = document.getElementById('offset-val');
+
+        trimInput.addEventListener('input', (e) => trimVal.textContent = e.target.value);
+        offsetInput.addEventListener('input', (e) => offsetVal.textContent = e.target.value);
+
+        function updateCalibration() {
+            fetch('/calibrate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    servo_trim: trimInput.value,
+                    heading_offset: offsetInput.value
+                })
+            }).then(r => alert("Calibration Applied!"));
         }
 
         setInterval(() => {

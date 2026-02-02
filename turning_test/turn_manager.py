@@ -15,7 +15,13 @@ class TurnManager:
         # This is strictly a guess for the simulation/dead-reckoning
         self.turn_rate_deg_per_sec = 45.0 
         self.motor_speed = 30 # Slow speed for turning
-        
+        self.heading_offset = 0.0 # Degrees
+
+    def set_trim(self, servo_trim, heading_offset):
+        driver.servo_trim = servo_trim
+        self.heading_offset = heading_offset
+        print(f"Calibration Updated: Servo={servo_trim}, Heading={heading_offset}")
+
     def set_direction(self, direction):
         # Map input string to degrees
         mapping = {'NORTH': 0, 'EAST': 90, 'SOUTH': 180, 'WEST': 270}
@@ -37,7 +43,12 @@ class TurnManager:
         while self.turning:
             # Calculate Error
             # Shortest turn logic
-            error = self.target_heading - self.current_heading
+            # Apply offset to current heading logic if needed, or target.
+            # Here: We want Target to be offset. E.g. NORTH is 0, but if offset is 5, correct North is 5.
+            # Error = (Target + Offset) - Current
+            effective_target = self.target_heading + self.heading_offset
+            
+            error = effective_target - self.current_heading
             
             # Normalize to -180 to 180
             if error > 180: error -= 360

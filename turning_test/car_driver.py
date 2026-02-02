@@ -57,14 +57,20 @@ class CarDriver:
         # Clamped to prevent chassis hit
         val = max(-1.0, min(1.0, val))
         self.current_angle_val = val
-        
+        self.servo_trim = 0.0 # Degrees +/-
+
         if MOCK_GPIO:
             print(f"[MOCK] Steer: {val:.2f}")
             return
 
         # Map to 45 - 135 degrees
         # 0 = 90 deg (Center)
-        target_angle = 90 + (val * 45)
+        # Apply trim here. If trim is +5, 0 (Center) becomes 95 deg.
+        target_angle = 90 + self.servo_trim + (val * 45)
+        
+        # Clamp physical limits
+        target_angle = max(45, min(135, target_angle))
+        
         duty = 2.5 + (target_angle / 18.0)
         
         self.pwm_servo.ChangeDutyCycle(duty)
