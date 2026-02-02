@@ -57,6 +57,11 @@ document.addEventListener('DOMContentLoaded', () => {
     maxSpeedSlider.value = DEFAULT_SPEED_LIMIT;
     speedVal.textContent = DEFAULT_SPEED_LIMIT;
 
+    // Default Turn
+    const DEFAULT_TURN_LIMIT = 50;
+    maxTurnSlider.value = DEFAULT_TURN_LIMIT;
+    turnVal.textContent = DEFAULT_TURN_LIMIT;
+
     initMap();
     // Delay Joystick init to ensure layout is stable
     setTimeout(initJoystick, 500);
