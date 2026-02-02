@@ -168,57 +168,13 @@ class Navigator:
                 # Update target
                 target_wp = self.waypoints[self.current_waypoint_index]
 
-            # --- XTE Calculation ---
-            # Line is defined by last_visited_wp -> target_wp
-            xte = self.get_cross_track_error(
-                last_visited_wp['lat'], last_visited_wp['lng'],
-                target_wp['lat'], target_wp['lng'],
-                current_loc['lat'], current_loc['lng']
-            )
-
-            # --- Steering Logic ---
-            # CORRIDOR STRATEGY:
-            # If abs(XTE) < 2.0 meters, we are "On the Line". FORCE STRAIGHT.
-            # This ignores Heading Jitter completely.
+            # --- STEERING DISABLED IN AUTONOMOUS MODE ---
+            # User requested: Always keep servo at 90 degrees (straight)
+            # No GPS-based steering corrections
             
-            XTE_CORRIDOR_WIDTH = 4.0 # Meters (Widened for more stability)
-            
-            steering_mode = "NAV"
+            steering_mode = "LOCK"
             final_steering = 0.0
-            
-            if abs(xte) < XTE_CORRIDOR_WIDTH:
-                # WE ARE GOOD. DRIVE STRAIGHT.
-                steering_mode = "LOCK"
-                final_steering = 0.0
-                
-                # Reset smoother to 0 to prevent carry-over
-                self.current_steering = 0.0
-            else:
-                # We are off track. Guide back.
-                steering_mode = "CORRECT"
-                
-                # Calculate Bearing to Target (Fallback to simple pursuit for correction)
-                bearing = self.calculate_bearing(
-                    current_loc['lat'], current_loc['lng'],
-                    target_wp['lat'], target_wp['lng']
-                )
-                current_heading = current_loc.get('heading', 0.0)
-                heading_error = bearing - current_heading
-                
-                # Normalize
-                if heading_error > 180: heading_error -= 360
-                elif heading_error < -180: heading_error += 360
-                
-                # Normal P-Controller
-                steering_signal = heading_error * 0.04
-                target_steering = max(-1.0, min(1.0, steering_signal))
-                
-                # Smooth it
-                if target_steering > self.current_steering:
-                    self.current_steering = min(target_steering, self.current_steering + self.steering_step)
-                elif target_steering < self.current_steering:
-                    self.current_steering = max(target_steering, self.current_steering - self.steering_step)
-                final_steering = self.current_steering
+            self.current_steering = 0.0
 
             # Drive
             target_speed = min(self.base_speed, state_machine.max_speed)
@@ -226,7 +182,7 @@ class Navigator:
             car.set_speed(target_speed)
             state_machine.update_motion_state(target_speed, final_steering)
 
-            print(f"WP:{self.current_waypoint_index} | DistToWP:{dist_to_target:.1f}m | Tot:{total_remaining:.1f}m | XTE:{xte:.2f}m | Mode:{steering_mode} | Str:{final_steering:.2f}")
+            print(f"WP:{self.current_waypoint_index} | DistToWP:{dist_to_target:.1f}m | Tot:{total_remaining:.1f}m | Mode:STRAIGHT_ONLY | Str:0.00")
 
             time.sleep(0.1)
 
