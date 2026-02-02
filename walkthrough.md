@@ -121,6 +121,7 @@ This script will:
     python app.py
     ```
 <<<<<<< HEAD
+<<<<<<< HEAD
     sudo tee /etc/systemd/system/jager.service <<EOF
     [Unit]
     Description=Jager Dashboard
@@ -148,6 +149,8 @@ This script will:
     sudo cat /var/log/wifi-autoconnect.log
     
 
+=======
+>>>>>>> parent of 0b54e65 (Fully Working Code_Car+GPS+Map)
 =======
 >>>>>>> parent of 0b54e65 (Fully Working Code_Car+GPS+Map)
 2.  **Access Dashboard**: Open `http://<pi-ip>:5000` in your browser.
