@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let destinationLocation = null;
     let currentMode = "AUTONOMOUS";
     let joyManager = null;
-    let isDarkTheme = true;
+    let isDarkTheme = false;
 
     // Control State
     let currentSpeed = 0;
@@ -76,11 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function initMap() {
         map = L.map('map').setView([20.5937, 78.9629], 5);
 
-        // Default to Dark Theme
+        // Map Tile Providers
         const darkUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        const lightUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        // Switched to CartoDB Positron for cleaner look and better reliability
+        const lightUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 
-        tileLayer = L.tileLayer(darkUrl, {
+        // Init with Light Theme (since isDarkTheme = false now)
+        tileLayer = L.tileLayer(isDarkTheme ? darkUrl : lightUrl, {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 20
@@ -363,7 +365,15 @@ document.addEventListener('DOMContentLoaded', () => {
             map.removeLayer(destinationMarker);
         }
         destinationLocation = e.latlng;
-        destinationMarker = L.marker(e.latlng).addTo(map).bindPopup("Destination").openPopup();
+        destinationMarker = L.marker(e.latlng, {
+            icon: L.divIcon({
+                className: 'dest-icon',
+                html: '<div style="font-size: 24px; color: #ff4757; text-shadow: 0 0 5px black;">📍</div>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30], // Tip of the pin
+                popupAnchor: [0, -30]
+            })
+        }).addTo(map).bindPopup("Destination").openPopup();
         calcBtn.disabled = false;
 
         if (routePolyline) {

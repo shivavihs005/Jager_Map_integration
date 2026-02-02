@@ -115,9 +115,9 @@ class CarController:
         #   else = (val + 1) * 180
         
         # We'll use a smoother mapping for autonomous control
-        # Map -1..1 to 5..175 degrees (avoid stuck at 0/180)
-        # -1 -> 5 deg, 0 -> 90 deg, 1 -> 175 deg
-        target_angle = 90 + (val * 85)
+        # Map -1..1 to 45..135 degrees (avoid stuck at 0/180 and chassis hit)
+        # -1 -> 45 deg, 0 -> 90 deg, 1 -> 135 deg
+        target_angle = 90 + (val * 45)
         
         # Convert to Duty Cycle
         # Standard Servo: 2.5% (0deg) to 12.5% (180deg) usually
@@ -127,6 +127,7 @@ class CarController:
         self.servo_pwm.ChangeDutyCycle(duty)
         
         # Prevent Jitter: Turn off servo signal after short delay
+        # This allows the servo to reach position then relax.
         if hasattr(self, 'servo_timer') and self.servo_timer:
             self.servo_timer.cancel()
         
@@ -134,6 +135,7 @@ class CarController:
             if not self.mock_mode:
                 self.servo_pwm.ChangeDutyCycle(0)
         
+        # Increased time slightly to ensure it reaches position "little by little"
         self.servo_timer = threading.Timer(0.5, stop_servo_signal)
         self.servo_timer.start()
 

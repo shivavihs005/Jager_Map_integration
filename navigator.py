@@ -20,6 +20,10 @@ class Navigator:
         
         # Deadband to prevent jitter
         self.steering_deadband = 5.0 # Degrees
+        
+        # Smoothing
+        self.current_steering = 0.0
+        self.steering_step = 0.2 # Max change per update (0.1s) ~ 2.0 per second (normalized)
 
     def set_route(self, waypoints):
         """
@@ -111,7 +115,7 @@ class Navigator:
                 diff = abs(bearing - next_bearing)
                 if diff > 180: diff = 360 - diff
                 
-                if diff < 10: # 10 degree tolerance for "straight"
+                if diff < 20: # 20 degree tolerance for "straight"
                     straight_road_assist = True
             
             
@@ -129,25 +133,42 @@ class Navigator:
             elif heading_error < -180:
                 heading_error += 360
             
-            # Straight Assist Logic: If on straight road and error is small, force 0 steering
-            if straight_road_assist and abs(heading_error) < 10:
-                print(f"Straight Assist Active. Bearing: {bearing:.1f}")
-                steering_angle = 0
+            # Straight Assist Logic: If on straight road, suppress steering unless error is large
+            if straight_road_assist:
+                 # Aggressive Deadband for straight roads
+                if abs(heading_error) < 15: # 15 degree deadband on straight roads
+                    print(f"Straight Assist Active. Bearing: {bearing:.1f}")
+                    steering_angle = 0
+                else:
+                    # Damped steering if drifting too much
+                    steering_signal = heading_error * 0.02 # Lower gain
+                    steering_angle = max(-1.0, min(1.0, steering_signal))
             else:
+                 # Normal Turns logic
                  # Deadband
                 if abs(heading_error) < self.steering_deadband:
                     heading_error = 0
 
                 # P-Controller
                 steering_signal = heading_error * 0.04 
-                steering_angle = max(-1.0, min(1.0, steering_signal))
-            
-            print(f"WP:{self.current_waypoint_index} | Dist:{dist:.1f}m | Hdg:{current_heading:.1f} | Tgt:{bearing:.1f} | Str:{steering_angle:.2f}")
+                target_steering = max(-1.0, min(1.0, steering_signal))
 
-            car.set_steering(steering_angle) 
+            # Smoothing Logic ("Turn little by little")
+            # Move current_steering towards target_steering by steering_step
+            if target_steering > self.current_steering:
+                self.current_steering = min(target_steering, self.current_steering + self.steering_step)
+            elif target_steering < self.current_steering:
+                self.current_steering = max(target_steering, self.current_steering - self.steering_step)
+            
+            # Use the smoothed value
+            final_steering = self.current_steering
+            
+            print(f"WP:{self.current_waypoint_index} | Dist:{dist:.1f}m | Hdg:{current_heading:.1f} | Tgt:{bearing:.1f} | Str:{final_steering:.2f}")
+
+            car.set_steering(final_steering) 
             car.set_speed(target_speed)
             
-            state_machine.update_motion_state(target_speed, steering_angle)
+            state_machine.update_motion_state(target_speed, final_steering)
             
             time.sleep(0.1) # Faster update rate
 
