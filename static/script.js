@@ -94,6 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initJoystick() {
+        if (joyManager) return; // Already initialized
+
         const zone = document.getElementById('joystick-zone');
         joyManager = nipplejs.create({
             zone: zone,
@@ -107,9 +109,16 @@ document.addEventListener('DOMContentLoaded', () => {
         joyManager.on('move', (evt, data) => {
             if (currentMode !== 'MANUAL') return;
 
-            // Only care about Angle (X)
-            // vector.x is between -1 (left) and 1 (right)
-            currentAngle = data.vector.x;
+            // Use frontPosition for reliable X axis value with lockX
+            // data.instance.frontPosition.x is relative to center
+            // Range is roughly -50 to 50 for size 100
+            const maxDist = 50.0;
+            let val = data.instance.frontPosition.x / maxDist;
+
+            // Clamp
+            val = Math.max(-1.0, Math.min(1.0, val));
+
+            currentAngle = val;
             sendControl();
         });
 
@@ -118,6 +127,13 @@ document.addEventListener('DOMContentLoaded', () => {
             currentAngle = 0;
             sendControl();
         });
+    }
+
+    function destroyJoystick() {
+        if (joyManager) {
+            joyManager.destroy();
+            joyManager = null;
+        }
     }
 
     function setupEventListeners() {
@@ -282,14 +298,12 @@ document.addEventListener('DOMContentLoaded', () => {
             semiAutoControls.classList.add('hidden');
             // Reset Angle when entering Manual
             currentAngle = 0;
-            if (joyManager) {
-                // creating a new instance might be better but for now let's just ensure no residual values
-                // sending 0 command
-                sendControl();
-            }
+            // Init Joystick now that it is visible
+            setTimeout(initJoystick, 100);
         } else if (mode === 'AUTONOMOUS') {
             manualControls.classList.add('hidden');
             semiAutoControls.classList.remove('hidden');
+            destroyJoystick();
         }
     }
 
