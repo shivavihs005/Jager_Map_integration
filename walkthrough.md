@@ -180,6 +180,8 @@ Use the buttons to switch modes. **Note**: Switching modes will stop the car imm
 1.  **Click on Map**: Drop a destination pin.
 2.  **Calculate Path**: Click the button to generate a route (Blue Line).
 3.  **Start Engine**: Begins autonomous travel to the destination.
+    -   **Straight Line Corridor**: The car creates a virtual corridor (2m width) between waypoints. As long as the car is inside this corridor, steering is forced to **STRAIGHT (0)** to eliminate GPS jitter.
+    -   **Total Distance**: telemetry displays the total remaining distance of the route.
 4.  **Emergency Stop**: Click "Status" or "Stop" to halt immediately.
 
 ### E. Configuration
