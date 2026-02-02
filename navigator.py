@@ -181,7 +181,7 @@ class Navigator:
             # If abs(XTE) < 2.0 meters, we are "On the Line". FORCE STRAIGHT.
             # This ignores Heading Jitter completely.
             
-            XTE_CORRIDOR_WIDTH = 2.0 # Meters
+            XTE_CORRIDOR_WIDTH = 4.0 # Meters (Widened for more stability)
             
             steering_mode = "NAV"
             final_steering = 0.0

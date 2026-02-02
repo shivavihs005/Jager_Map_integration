@@ -41,7 +41,7 @@ class CarController:
         self.servo_timer = None
         
         # Configuration
-        self.STEERING_INVERTED = True # Set to True if car turns Left when it should turn Right
+        self.STEERING_INVERTED = False # Set to True if car turns Left when it should turn Right
         self.OFFSET_ANGLE = 0.0 # Trim in degrees
         
         if MOCK_GPIO:
