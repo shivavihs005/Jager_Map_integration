@@ -40,6 +40,10 @@ class CarController:
         self.last_servo_update = 0
         self.servo_timer = None
         
+        # Configuration
+        self.STEERING_INVERTED = True # Set to True if car turns Left when it should turn Right
+        self.OFFSET_ANGLE = 0.0 # Trim in degrees
+        
         if MOCK_GPIO:
             print("Using Mock GPIO Driver (Import Failed).")
             self.mock_mode = True
@@ -108,6 +112,9 @@ class CarController:
         # Clamp (-1 to 1)
         val = max(-1.0, min(1.0, angle_percent))
         
+        if self.STEERING_INVERTED:
+            val = -val
+        
         # Map to angle (0-180) approximately based on user code logic
         # User Logic: 
         #   -0.5 to 0.5 = 90 (Center)
@@ -117,7 +124,7 @@ class CarController:
         # We'll use a smoother mapping for autonomous control
         # Map -1..1 to 45..135 degrees (avoid stuck at 0/180 and chassis hit)
         # -1 -> 45 deg, 0 -> 90 deg, 1 -> 135 deg
-        target_angle = 90 + (val * 45)
+        target_angle = 90 + (val * 45) + self.OFFSET_ANGLE
         
         # Convert to Duty Cycle
         # Standard Servo: 2.5% (0deg) to 12.5% (180deg) usually

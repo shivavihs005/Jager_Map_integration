@@ -78,7 +78,7 @@ class GPSReader:
                         # This prevents "spinning" when stopped due to GPS noise.
                         if hasattr(msg, 'true_course') and msg.true_course is not None:
                             heading = float(msg.true_course)
-                            if speed_knots > 0.5:
+                            if speed_knots > 0.1: # Reduced from 0.5 for testing
                                 self.current_location['heading'] = heading
                             # Else: Keep previous heading (Heading Hold)
                         else:
