@@ -1,68 +1,57 @@
+import threading
 from enum import Enum
 
 class CarMode(Enum):
     MANUAL = "MANUAL"
-    AUTONOMOUS = "AUTONOMOUS"
+    SEMI_AUTO = "SEMI_AUTO"
+    AUTO = "AUTO"
 
 class MotionState(Enum):
     STOPPED = "STOPPED"
     FORWARD = "FORWARD"
     BACKWARD = "BACKWARD"
-    FORWARD_LEFT = "FORWARD_LEFT"
-    FORWARD_RIGHT = "FORWARD_RIGHT"
-    BACKWARD_LEFT = "BACKWARD_LEFT"
-    BACKWARD_RIGHT = "BACKWARD_RIGHT"
+    TURN_LEFT = "TURN_LEFT"
+    TURN_RIGHT = "TURN_RIGHT"
+    PRECISION_TURN = "PRECISION_TURN"
 
 class StateMachine:
     def __init__(self):
-        self.current_mode = CarMode.AUTONOMOUS
+        self.lock = threading.Lock()
+        self.current_mode = CarMode.SEMI_AUTO # Use new robust defaults
         self.current_motion_state = MotionState.STOPPED
         self.max_speed = 20  # Percentage 0-100
-        self.max_turn = 50   # Percentage 0-100 (Where 100 is full range)
+        self.max_turn = 50   # Percentage 0-100
 
     def set_mode(self, mode_str):
         try:
-            self.current_mode = CarMode(mode_str)
+            # Add backwards compatibility mapping
+            if mode_str == "AUTONOMOUS": 
+                mode_str = "SEMI_AUTO" 
+                
+            new_mode = CarMode(mode_str)
+            with self.lock:
+                self.current_mode = new_mode
             return True
         except ValueError:
             return False
 
     def set_limits(self, max_speed, max_turn):
-        self.max_speed = max(0, min(100, int(max_speed)))
-        self.max_turn = max(0, min(100, int(max_turn)))
+        with self.lock:
+            self.max_speed = max(0, min(100, int(max_speed)))
+            self.max_turn = max(0, min(100, int(max_turn)))
 
-    def update_motion_state(self, speed, angle):
-        """
-        Derive motion state from speed (-100 to 100) and angle (-1.0 to 1.0)
-        """
-        # Thresholds to consider "moving" or "turning"
-        SPEED_THRESHOLD = 5
-        TURN_THRESHOLD = 0.1
-
-        if abs(speed) < SPEED_THRESHOLD:
-            self.current_motion_state = MotionState.STOPPED
-        elif speed > 0:
-            if angle < -TURN_THRESHOLD:
-                self.current_motion_state = MotionState.FORWARD_LEFT
-            elif angle > TURN_THRESHOLD:
-                self.current_motion_state = MotionState.FORWARD_RIGHT
-            else:
-                self.current_motion_state = MotionState.FORWARD
-        else: # speed < 0
-            if angle < -TURN_THRESHOLD:
-                self.current_motion_state = MotionState.BACKWARD_LEFT
-            elif angle > TURN_THRESHOLD:
-                self.current_motion_state = MotionState.BACKWARD_RIGHT
-            else:
-                self.current_motion_state = MotionState.BACKWARD
+    def set_motion_state(self, state: MotionState):
+        with self.lock:
+            self.current_motion_state = state
 
     def get_state(self):
-        return {
-            "mode": self.current_mode.value,
-            "motion_state": self.current_motion_state.value,
-            "max_speed": self.max_speed,
-            "max_turn": self.max_turn
-        }
+        with self.lock:
+            return {
+                "mode": self.current_mode.value,
+                "motion_state": self.current_motion_state.value,
+                "max_speed": self.max_speed,
+                "max_turn": self.max_turn
+            }
 
-# Global instance
 state_machine = StateMachine()
+
