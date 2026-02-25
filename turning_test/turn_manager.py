@@ -1,29 +1,33 @@
-
 import time
 import threading
-from car_driver import driver
+import sys
+import os
+
+# Put parent directory into path so we can import the new autonomous modules
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from sensor import sensor_system
+from motor import motor
+from state_machine import state_machine, CarMode, MotionState
+
+# Ensure sensors are running
+sensor_system.start()
 
 class TurnManager:
     def __init__(self):
-        self.current_heading = 0 # 0=N, 90=E, 180=S, 270=W
         self.target_heading = 0
         self.turning = False
         self.thread = None
         
-        # Tuning
-        # How many degrees per second the car turns at a given speed/steer
-        # This is strictly a guess for the simulation/dead-reckoning
-        self.turn_rate_deg_per_sec = 45.0 
-        self.motor_speed = 30 # Slow speed for turning
-        self.heading_offset = 0.0 # Degrees
+        self.servo_trim = 0.0
+        self.heading_offset = 0.0
 
     def set_trim(self, servo_trim, heading_offset):
-        driver.servo_trim = servo_trim
+        self.servo_trim = servo_trim
         self.heading_offset = heading_offset
+        # Apply trim to motor logic (in actual implementation we'd expose a center offset config)
         print(f"Calibration Updated: Servo={servo_trim}, Heading={heading_offset}")
 
     def set_direction(self, direction):
-        # Map input string to degrees
         mapping = {'NORTH': 0, 'EAST': 90, 'SOUTH': 180, 'WEST': 270}
         if direction in mapping:
             self.target_heading = mapping[direction]
@@ -37,65 +41,55 @@ class TurnManager:
         self.thread.daemon = True
         self.thread.start()
 
+    @property
+    def current_heading(self):
+        # We will map the relative IMU yaw to our test dashboard "compass"
+        # Using the heading_offset to calibrate "North"
+        data = sensor_system.get_data()
+        # Ensure it's 0-360 mapped
+        h = (data['current_yaw'] + self.heading_offset) % 360
+        if h < 0: h += 360
+        return h
+
     def _control_loop(self):
-        print("Starting Turn Sequence...")
+        print("Starting Hardware MPU Turn Sequence...")
         
         while self.turning:
-            # Calculate Error
-            # Shortest turn logic
-            # Apply offset to current heading logic if needed, or target.
-            # Here: We want Target to be offset. E.g. NORTH is 0, but if offset is 5, correct North is 5.
-            # Error = (Target + Offset) - Current
-            effective_target = self.target_heading + self.heading_offset
+            effective_target = self.target_heading
+            curr = self.current_heading
             
-            error = effective_target - self.current_heading
-            
-            # Normalize to -180 to 180
+            error = effective_target - curr
             if error > 180: error -= 360
             elif error < -180: error += 360
             
-            print(f"Heading: {self.current_heading:.1f} | Target: {self.target_heading} | Error: {error:.1f}")
+            print(f"Heading: {curr:.1f} | Target: {effective_target} | Error: {error:.1f}")
 
             if abs(error) < 5:
                 print("Aligned!")
-                driver.set_move(0)
-                driver.set_steering(0)
+                motor.stop()
                 self.turning = False
                 break
 
-            # Steer
-            # Turn little by little (Smoothly ramp steer)
-            # Use max steer for efficiency but we could ramp it if needed
-            steer_target = 0.0
-            if error > 0:
-                steer_target = 1.0 # Right
-            else:
-                steer_target = -1.0 # Left
-                
-            # For simplicity in this test, just set steering safe max
-            driver.set_steering(steer_target)
+            # Turn using actual motor API instead of setting a target for dead reckoning
+            steer_target = 30.0 if error > 0 else -30.0 # max right vs max left physical degrees
             
-            # Move
-            driver.set_move(self.motor_speed)
+            # The test uses drive_forward but we can also use precise relative turn 
+            # motor.turn_by_degree(error) is blocking, so if we use it, our UI won't update mid-turn
+            # unless we read it from another thread.
+            # Instead, since this thread is the control loop, we'll manually apply drive and stop
             
-            # Simulate Heading Update (Dead Reckoning)
-            # In real life, read compass here.
-            # We assume we update every 0.1s
-            step_time = 0.1
+            # Simple proportional or just max steer
+            motor.set_steering(steer_target)
             
-            # Direction of turn
-            turn_dir = 1 if error > 0 else -1
+            # For a pure "turn on spot" simulation equivalent on Ackermann, we can just drive_forward
+            # If the car can do differential steering, you'd do that in motor.set_speed
+            motor.set_speed(30)
             
-            change = self.turn_rate_deg_per_sec * step_time * turn_dir
+            # small delay before next reading
+            time.sleep(0.05)
             
-            # Don't overshoot
-            if abs(change) > abs(error):
-                change = error
-
-            self.current_heading = (self.current_heading + change) % 360
-            
-            time.sleep(step_time)
-            
-        print("Turn Complete.")
+        print("Hardware Turn Complete.")
+        motor.stop()
 
 turn_manager = TurnManager()
+

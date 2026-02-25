@@ -39,7 +39,7 @@ sudo apt update && sudo apt install git -y
 
 # Configure Git (replace with your actual name and email)
 git config --global user.name "shivavihs005"
-git config --global user.email "your.email@example.com"
+git config --global user.email "shivapanner2005@gmail.com"
 
 # Create project folder
 mkdir -p ~/my-projects
@@ -80,10 +80,10 @@ Connect the following components to your Raspberry Pi 4 GPIO:
 
 
 ### B. DC Motor Driver (L298N or similar)
-- **R_EN** (Right Enable) -> GPIO 23
-- **L_EN** (Left Enable)  -> GPIO 24
-- **RPWM** (Forward)      -> GPIO 13
-- **LPWM** (Backward)     -> GPIO 12
+- **R_EN** (Right Enable) -> GPIO 23 (black)
+- **L_EN** (Left Enable)  -> GPIO 24 (Blue)
+- **RPWM** (Forward)      -> GPIO 13 (vilote)
+- **LPWM** (Backward)     -> GPIO 12 (orange)
 - **GND** -> Ground
 - **VCC** -> External Motor Power (e.g., 12V LiPo)
 
