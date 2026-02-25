@@ -113,45 +113,56 @@ class SensorSystem:
 
         while self.gps_running:
             try:
-                line = ser.readline().decode('utf-8', errors='ignore')
+                line = ser.readline().decode('utf-8', errors='ignore').strip()
+                if not line:
+                    continue
+                    
                 if line.startswith('$GPGGA') or line.startswith('$GNGGA'):
                     try:
                         msg = pynmea2.parse(line)
-                        if msg.latitude and msg.longitude:
-                            lat = msg.latitude
-                            lng = msg.longitude
-                            snapped = map_matcher.match_to_road(lat, lng)
-                            if snapped: lat, lng = snapped
+                        if getattr(msg, 'gps_qual', 0) > 0:
+                            if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
+                                lat = msg.latitude
+                                lng = msg.longitude
+                                snapped = map_matcher.match_to_road(lat, lng)
+                                if snapped: lat, lng = snapped
+                                with self.lock:
+                                    self.lat = lat
+                                    self.lng = lng
+                                    self.has_fix = True
+                        else:
                             with self.lock:
-                                self.lat = lat
-                                self.lng = lng
-                                self.has_fix = True
+                                self.has_fix = False
                     except pynmea2.ParseError:
                         pass
                 elif line.startswith('$GPRMC') or line.startswith('$GNRMC'):
                     try:
                         msg = pynmea2.parse(line)
-                        if msg.latitude and msg.longitude:
-                             lat = msg.latitude
-                             lng = msg.longitude
-                             snapped = map_matcher.match_to_road(lat, lng)
-                             if snapped: lat, lng = snapped
-                             with self.lock:
-                                 self.lat = lat
-                                 self.lng = lng
-                                 self.has_fix = True
-                        
-                        speed_knots = 0.0
-                        if hasattr(msg, 'spd_over_grnd') and msg.spd_over_grnd is not None:
-                             speed_knots = float(msg.spd_over_grnd)
-                             with self.lock:
-                                 self.speed_kmh = speed_knots * 1.852
-                        
-                        if hasattr(msg, 'true_course') and msg.true_course is not None:
-                            heading = float(msg.true_course)
-                            if speed_knots > 0.5: # 0.5 knot threshold to avoid stopped spin
-                                with self.lock:
-                                    self.gps_heading = heading
+                        if getattr(msg, 'status', 'V') == 'A':
+                            if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
+                                 lat = msg.latitude
+                                 lng = msg.longitude
+                                 snapped = map_matcher.match_to_road(lat, lng)
+                                 if snapped: lat, lng = snapped
+                                 with self.lock:
+                                     self.lat = lat
+                                     self.lng = lng
+                                     self.has_fix = True
+                            
+                            speed_knots = 0.0
+                            if hasattr(msg, 'spd_over_grnd') and getattr(msg, 'spd_over_grnd') is not None:
+                                 speed_knots = float(msg.spd_over_grnd)
+                                 with self.lock:
+                                     self.speed_kmh = speed_knots * 1.852
+                            
+                            if hasattr(msg, 'true_course') and getattr(msg, 'true_course') is not None:
+                                heading = float(msg.true_course)
+                                if speed_knots > 0.5: # 0.5 knot threshold to avoid stopped spin
+                                    with self.lock:
+                                        self.gps_heading = heading
+                        else:
+                            with self.lock:
+                                self.has_fix = False
                     except pynmea2.ParseError:
                         pass
             except Exception as e:

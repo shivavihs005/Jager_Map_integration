@@ -35,56 +35,54 @@ class GPSReader:
 
         while self.running:
             try:
-                line = ser.readline().decode('utf-8', errors='ignore')
+                line = ser.readline().decode('utf-8', errors='ignore').strip()
+                if not line:
+                    continue
+                    
                 if line.startswith('$GPGGA') or line.startswith('$GNGGA'):
                     try:
                         msg = pynmea2.parse(line)
-                        if msg.latitude and msg.longitude:
-                            lat = msg.latitude
-                            lng = msg.longitude
-                            
-                            # Attempt Map Matching
-                            snapped = map_matcher.match_to_road(lat, lng)
-                            if snapped:
-                                lat, lng = snapped
-                            
-                            self.current_location['lat'] = lat
-                            self.current_location['lng'] = lng
+                        if getattr(msg, 'gps_qual', 0) > 0:
+                            if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
+                                lat = msg.latitude
+                                lng = msg.longitude
+                                
+                                # Attempt Map Matching
+                                snapped = map_matcher.match_to_road(lat, lng)
+                                if snapped:
+                                    lat, lng = snapped
+                                
+                                self.current_location['lat'] = lat
+                                self.current_location['lng'] = lng
                     except pynmea2.ParseError:
                         continue
+                        
                 elif line.startswith('$GPRMC') or line.startswith('$GNRMC'):
                     try:
                         msg = pynmea2.parse(line)
-                        if msg.latitude and msg.longitude:
-                             lat = msg.latitude
-                             lng = msg.longitude
-                             
-                             # Attempt Map Matching
-                             snapped = map_matcher.match_to_road(lat, lng)
-                             if snapped:
-                                 lat, lng = snapped
+                        if getattr(msg, 'status', 'V') == 'A':
+                            if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
+                                 lat = msg.latitude
+                                 lng = msg.longitude
                                  
-                             self.current_location['lat'] = lat
-                             self.current_location['lng'] = lng
-                        
-                        # Extract Heading (True Course) and Speed
-                        speed_knots = 0.0
-                        if hasattr(msg, 'spd_over_grnd') and msg.spd_over_grnd is not None:
-                             speed_knots = float(msg.spd_over_grnd)
-                             self.current_location['speed'] = speed_knots * 1.852 # Convert Knots to km/h
-                        
-                        # Heading Hold Logic
-                        # Only update heading if we have significant speed (> 0.5 knot approx 0.25 m/s)
-                        # This prevents "spinning" when stopped due to GPS noise.
-                        if hasattr(msg, 'true_course') and msg.true_course is not None:
-                            heading = float(msg.true_course)
-                            if speed_knots > 0.1: # Reduced from 0.5 for testing
-                                self.current_location['heading'] = heading
-                            # Else: Keep previous heading (Heading Hold)
-                        else:
-                            # If no course data, keep previous
-                            pass
-                        
+                                 # Attempt Map Matching
+                                 snapped = map_matcher.match_to_road(lat, lng)
+                                 if snapped:
+                                     lat, lng = snapped
+                                     
+                                 self.current_location['lat'] = lat
+                                 self.current_location['lng'] = lng
+                            
+                            # Extract Heading (True Course) and Speed
+                            speed_knots = 0.0
+                            if hasattr(msg, 'spd_over_grnd') and getattr(msg, 'spd_over_grnd') is not None:
+                                 speed_knots = float(msg.spd_over_grnd)
+                                 self.current_location['speed'] = speed_knots * 1.852 # Convert Knots to km/h
+                            
+                            if hasattr(msg, 'true_course') and getattr(msg, 'true_course') is not None:
+                                heading = float(msg.true_course)
+                                if speed_knots > 0.1: # Reduced from 0.5 for testing
+                                    self.current_location['heading'] = heading
                     except pynmea2.ParseError:
                         continue
             except Exception as e:
