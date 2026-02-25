@@ -54,7 +54,7 @@ cd Jager_Map_integration
 # To pull updates later
 git pull origin main 
 
-# Check status
+# Check status with the important
 git status
 
 # List files in the repository
