@@ -1,14 +1,16 @@
 """
 Standalone hardware testing application for Jager.
-Provides a simple web interface to test the motor, steering servo, gyro, and accel directly.
+Uses the modular robotics stack: IMU (Madgwick), GPS, Fusion, State Machine.
 
-Run this file from within the hardware_tests directory:
+Run from within the hardware_tests directory:
     cd hardware_tests
     python app.py
 """
 
 import sys
 import os
+import time
+import threading
 from flask import Flask, render_template, request, jsonify
 
 # Add parent directory to sys.path to import car_controller
@@ -21,39 +23,59 @@ try:
 except ImportError as e:
     print(f"Error importing car_controller: {e}")
     class MockCar:
-        def set_speed(self, speed): print(f"Mock Motor Speed: {speed}")
-        def set_steering(self, angle): print(f"Mock Steering: {angle}")
-        def stop(self): print("Mock Stop")
+        def set_speed(self, speed): pass
+        def set_steering(self, angle): pass
+        def stop(self): pass
     car = MockCar()
 
-# MPU6500 integration for hardware tests
-try:
-    from smbus2 import SMBus
-    SMBUS_AVAILABLE = True
-    bus = SMBus(1)
-    mpu_address = 0x68
-    bus.write_byte_data(mpu_address, 0x6B, 0) # Wake up
-    # Set Gyro to +/- 250 deg/s
-    bus.write_byte_data(mpu_address, 0x1B, 0x00)
-    # Set Accel to +/- 2g
-    bus.write_byte_data(mpu_address, 0x1C, 0x00)
-except Exception as e:
-    SMBUS_AVAILABLE = False
-    print(f"IMU not available for hardware tests: {e}")
+# --- Import Robotics Modules ---
+from imu import IMU
+from gps import GPS
+from fusion import SensorFusion
+from state_machine import StateMachine
 
+# --- Initialize Stack ---
+imu = IMU()
+gps = GPS()
+fusion = SensorFusion()
+sm = StateMachine()
+
+data_lock = threading.Lock()
+
+
+def sensor_loop():
+    """Main sensor loop running at ~100Hz for IMU updates."""
+    while True:
+        imu.update()
+
+        execution_time = time.time()
+        sleep_time = 0.01 - (time.time() - execution_time)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+
+
+def gps_loop():
+    """GPS loop reads serial at whatever rate the module outputs (~1-5Hz)."""
+    while True:
+        gps.update()
+        time.sleep(0.05)  # Check at 20Hz, GPS outputs at 1-5Hz
+
+
+def fusion_loop():
+    """Fusion loop blends IMU + GPS at 20Hz."""
+    while True:
+        imu_yaw = imu.get_yaw()
+        gps_data = gps.get_data()
+
+        with data_lock:
+            fusion.update(imu_yaw, gps_data["heading"], gps_data["speed"])
+            sm.update(gps_data["speed"])
+
+        time.sleep(0.05)  # 20Hz
+
+
+# --- Flask App ---
 app = Flask(__name__)
-
-def read_word_2c(addr):
-    try:
-        high = bus.read_byte_data(mpu_address, addr)
-        low = bus.read_byte_data(mpu_address, addr+1)
-        val = (high << 8) + low
-        if val >= 0x8000:
-            return -((65535 - val) + 1)
-        else:
-            return val
-    except Exception:
-        return 0
 
 @app.route('/')
 def index():
@@ -61,51 +83,36 @@ def index():
 
 @app.route('/api/motor', methods=['POST'])
 def control_motor():
-    """Endpoint for Motor (-100 to 100)"""
     data = request.json
     speed = float(data.get('speed', 0.0))
     speed = max(-100.0, min(100.0, speed))
-    
     car.set_speed(speed)
     return jsonify({"status": "success", "speed": speed})
 
 @app.route('/api/servo', methods=['POST'])
 def control_servo():
-    """Endpoint for horizontal slider (Angle 0 to 180)"""
     data = request.json
     angle = float(data.get('angle', 90.0))
     angle = max(0.0, min(180.0, angle))
-    
     angle_percent = (angle - 90) / 90.0
     car.set_steering(angle_percent)
     return jsonify({"status": "success", "angle": angle, "percent": angle_percent})
 
 @app.route('/api/sensors', methods=['GET'])
 def get_sensors():
-    """Endpoint to fetch raw IMU values"""
-    if not SMBUS_AVAILABLE:
-        # Mock values if no I2C is available
-        import random
-        return jsonify({
-            "status": "mock",
-            "accel": {"x": 0.0, "y": 0.0, "z": 1.0},
-            "gyro": {"x": 0.0, "y": 0.0, "z": round(random.uniform(-0.5, 0.5), 2)}
-        })
-    
-    # Read Accelerometer (±2g = 16384 LSB/g)
-    ax = read_word_2c(0x3B) / 16384.0
-    ay = read_word_2c(0x3D) / 16384.0
-    az = read_word_2c(0x3F) / 16384.0
-    
-    # Read Gyroscope (±250°/s = 131 LSB/°/s)
-    gx = read_word_2c(0x43) / 131.0
-    gy = read_word_2c(0x45) / 131.0
-    gz = read_word_2c(0x47) / 131.0
-    
+    imu_data = imu.get_data()
+    gps_data = gps.get_data()
+
+    with data_lock:
+        fusion_data = fusion.get_data()
+        state_data = sm.get_data()
+
     return jsonify({
         "status": "success",
-        "accel": {"x": round(ax,2), "y": round(ay,2), "z": round(az,2)},
-        "gyro": {"x": round(gx,2), "y": round(gy,2), "z": round(gz,2)}
+        "imu": imu_data,
+        "gps": gps_data,
+        "fusion": fusion_data,
+        "state": state_data
     })
 
 @app.route('/api/stop', methods=['POST'])
@@ -113,7 +120,28 @@ def stop_all():
     car.stop()
     return jsonify({"status": "success", "message": "Stopped"})
 
+@app.route('/api/reset_imu', methods=['POST'])
+def reset_imu():
+    import numpy as np
+    imu.q = np.array([1.0, 0.0, 0.0, 0.0])
+    with data_lock:
+        fusion.yaw = 0.0
+    return jsonify({"status": "success"})
+
+
 if __name__ == '__main__':
+    print("=" * 50)
+    print(" JAGER HARDWARE TEST — ROBOTICS STACK")
+    print("=" * 50)
+
+    # Calibrate IMU at startup
+    imu.calibrate()
+
+    # Launch background threads
+    threading.Thread(target=sensor_loop, daemon=True).start()
+    threading.Thread(target=gps_loop, daemon=True).start()
+    threading.Thread(target=fusion_loop, daemon=True).start()
+
+    print("[READY] All systems online.")
     print("Starting Hardware Test Server on port 5001...")
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
-

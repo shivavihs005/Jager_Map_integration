@@ -4,71 +4,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jager Hardware Test</title>
-    <!-- Google Fonts -->
+    <title>Jager Robotics Test</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Orbitron:wght@500;700&display=swap"
         rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
+            --bg: #0f172a;
+            --card: #1e293b;
             --accent: #38bdf8;
-            --text-main: #f8fafc;
-            --text-mut: #94a3b8;
+            --text: #f8fafc;
+            --muted: #94a3b8;
             --danger: #ef4444;
             --success: #22c55e;
             --warning: #f59e0b;
+            --purple: #a78bfa;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
-            padding: 20px 0;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            padding: 15px 0;
+            background: var(--bg);
+            color: var(--text);
             font-family: 'Outfit', sans-serif;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
             min-height: 100vh;
             overflow-y: auto;
         }
 
         .container {
-            width: 90%;
-            max-width: 600px;
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 92%;
+            max-width: 640px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            gap: 16px;
         }
 
+        /* Header */
         .header {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
             text-align: center;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 15px;
-            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: 1px;
+            font-size: 24px;
             color: var(--accent);
+            letter-spacing: 1px;
         }
 
         .header p {
-            margin: 5px 0 0;
-            color: var(--text-mut);
-            font-size: 14px;
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 13px;
         }
 
-        /* --- Custom Range Slider --- */
+        .state-badge {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.4);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-family: 'Orbitron', monospace;
+            font-size: 11px;
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .reset-btn {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .reset-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .card h3 {
+            margin: 0 0 12px;
+            font-size: 13px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        /* Sensor Grid */
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .sensor-grid.two-col {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .metric {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 12px 8px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .metric .label {
+            font-size: 10px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .metric .value {
+            font-family: 'Orbitron', monospace;
+            font-size: 20px;
+            color: var(--text);
+        }
+
+        .metric .value.accent {
+            color: var(--accent);
+        }
+
+        .metric .value.green {
+            color: var(--success);
+        }
+
+        .metric .value.purple {
+            color: var(--purple);
+        }
+
+        .metric .value.warn {
+            color: var(--warning);
+        }
+
+        .metric .unit {
+            font-size: 11px;
+            color: var(--muted);
+            margin-left: 2px;
+        }
+
+        .metric .sub {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 4px;
+        }
+
+        /* Sliders */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -80,180 +190,101 @@
         }
 
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 12px;
-            cursor: pointer;
+            height: 10px;
             background: #334155;
-            border-radius: 10px;
-            border: 1px solid #000;
+            border-radius: 8px;
         }
 
         input[type=range]::-webkit-slider-thumb {
-            height: 30px;
-            width: 30px;
+            height: 26px;
+            width: 26px;
             border-radius: 50%;
             background: var(--accent);
-            cursor: pointer;
             -webkit-appearance: none;
-            margin-top: -10px;
-            box-shadow: 0 0 10px var(--accent);
-            transition: transform 0.1s;
-        }
-
-        input[type=range]::-webkit-slider-thumb:active {
-            transform: scale(1.2);
+            margin-top: -8px;
+            box-shadow: 0 0 8px var(--accent);
         }
 
         .speed-slider::-webkit-slider-thumb {
             background: var(--success) !important;
-            box-shadow: 0 0 10px var(--success) !important;
+            box-shadow: 0 0 8px var(--success) !important;
         }
 
-        /* --- Blocks --- */
-        .block-card {
-            background: rgba(0, 0, 0, 0.2);
-            padding: 20px;
-            border-radius: 15px;
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 10px;
+            color: var(--muted);
         }
 
-        .label-group {
+        .label-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
 
-        .label-group h3 {
-            margin: 0;
-            font-size: 16px;
-            color: #cbd5e1;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .val-display {
+        .label-row .val {
             background: rgba(0, 0, 0, 0.4);
-            padding: 4px 12px;
-            border-radius: 8px;
+            padding: 3px 10px;
+            border-radius: 6px;
             font-family: 'Orbitron', monospace;
-            font-size: 18px;
+            font-size: 16px;
             color: var(--accent);
-            font-weight: bold;
-            min-width: 50px;
-            text-align: center;
         }
 
-        .servo-labels,
-        .speed-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-            font-size: 12px;
-            color: var(--text-mut);
-            font-weight: bold;
-            user-select: none;
-        }
-
-        /* --- Motor Controls (Buttons & Speed) --- */
-        .motor-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .drive-buttons {
+        /* Drive Buttons */
+        .drive-row {
             display: flex;
             gap: 10px;
-            justify-content: center;
+            margin-top: 12px;
         }
 
         .drive-btn {
             flex: 1;
-            padding: 15px;
-            font-size: 16px;
+            padding: 14px;
+            font-size: 15px;
             font-weight: bold;
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            text-align: center;
             color: white;
-            transition: all 0.1s;
             text-transform: uppercase;
+            transition: all 0.1s;
         }
 
         .btn-fwd {
             background: var(--success);
         }
 
-        .btn-fwd:active {
-            transform: translateY(4px);
-            filter: brightness(0.8);
-        }
-
         .btn-bwd {
             background: var(--warning);
         }
 
-        .btn-bwd:active {
-            transform: translateY(4px);
+        .drive-btn:active {
+            transform: translateY(3px);
             filter: brightness(0.8);
         }
 
-        /* --- Sensor Data Block --- */
-        .sensor-data-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        .sensor-module {
-            background: rgba(0, 0, 0, 0.25);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            text-align: center;
-        }
-
-        .sensor-module h4 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            color: var(--text-mut);
-            text-transform: uppercase;
-        }
-
-        .sensor-stat {
-            font-family: 'Orbitron', monospace;
-            font-size: 22px;
-            color: var(--text-main);
-            margin: 5px 0;
-        }
-
-        .sensor-sub {
-            font-size: 11px;
-            color: #64748b;
-        }
-
-        /* --- Stop Button --- */
+        /* Stop */
         .stop-btn {
             background: var(--danger);
             color: white;
             border: none;
-            padding: 18px;
-            font-size: 20px;
+            padding: 16px;
+            font-size: 18px;
             font-weight: 700;
             border-radius: 12px;
             cursor: pointer;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-top: 10px;
-            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
             transition: all 0.2s;
         }
 
         .stop-btn:active {
             transform: translateY(2px);
-            box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4);
         }
 
         .stop-btn:hover {
@@ -263,65 +294,132 @@
 </head>
 
 <body>
-
     <div class="container">
+
+        <!-- Header -->
         <div class="header">
-            <h1>HARDWARE TEST</h1>
-            <p>IMU Diagnostics & Injection</p>
+            <button class="reset-btn" id="reset-btn">Zero IMU</button>
+            <h1>JAGER ROBOTICS</h1>
+            <p>Madgwick IMU • GPS • Sensor Fusion</p>
+            <div class="state-badge" id="state-badge">IDLE</div>
         </div>
 
-        <!-- Steering / Servo -->
-        <div class="block-card">
-            <div class="label-group">
-                <h3>Servo Angle</h3>
-                <div class="val-display" id="servo-val">90°</div>
+        <!-- Fusion Output (Primary) -->
+        <div class="card">
+            <h3>Fused Navigation</h3>
+            <div class="sensor-grid two-col">
+                <div class="metric">
+                    <div class="label">Fused Heading</div>
+                    <div class="value accent" id="fused-yaw">0.00<span class="unit">°</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Speed</div>
+                    <div class="value green" id="fused-speed">0.00<span class="unit">m/s</span></div>
+                </div>
             </div>
-            <!-- 0 to 180, default 90 (center) -->
+        </div>
+
+        <!-- IMU Orientation -->
+        <div class="card">
+            <h3>IMU Orientation (Madgwick)</h3>
+            <div class="sensor-grid">
+                <div class="metric">
+                    <div class="label">Yaw</div>
+                    <div class="value accent" id="imu-yaw">0.00<span class="unit">°</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Pitch</div>
+                    <div class="value" id="imu-pitch">0.00<span class="unit">°</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Roll</div>
+                    <div class="value" id="imu-roll">0.00<span class="unit">°</span></div>
+                </div>
+            </div>
+            <div class="sensor-grid" style="margin-top:10px">
+                <div class="metric">
+                    <div class="label">Accel X</div>
+                    <div class="value" id="ax" style="font-size:16px">0.00<span class="unit">g</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Accel Y</div>
+                    <div class="value" id="ay" style="font-size:16px">0.00<span class="unit">g</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Accel Z</div>
+                    <div class="value" id="az" style="font-size:16px">0.00<span class="unit">g</span></div>
+                </div>
+            </div>
+            <div class="sensor-grid" style="margin-top:10px">
+                <div class="metric">
+                    <div class="label">Gyro X</div>
+                    <div class="value" id="gx" style="font-size:16px">0.00<span class="unit">°/s</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Gyro Y</div>
+                    <div class="value" id="gy" style="font-size:16px">0.00<span class="unit">°/s</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Gyro Z</div>
+                    <div class="value" id="gz" style="font-size:16px">0.00<span class="unit">°/s</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GPS -->
+        <div class="card">
+            <h3>GPS (NEO-6M)</h3>
+            <div class="sensor-grid two-col">
+                <div class="metric">
+                    <div class="label">Latitude</div>
+                    <div class="value purple" id="gps-lat" style="font-size:16px">--</div>
+                </div>
+                <div class="metric">
+                    <div class="label">Longitude</div>
+                    <div class="value purple" id="gps-lon" style="font-size:16px">--</div>
+                </div>
+            </div>
+            <div class="sensor-grid" style="margin-top:10px">
+                <div class="metric">
+                    <div class="label">Speed</div>
+                    <div class="value green" id="gps-speed">0.00<span class="unit">m/s</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Heading</div>
+                    <div class="value warn" id="gps-heading">0.00<span class="unit">°</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Fix / Sats</div>
+                    <div class="value" id="gps-fix" style="font-size:14px">NO FIX</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Servo -->
+        <div class="card">
+            <div class="label-row">
+                <h3 style="margin:0">Servo Angle</h3>
+                <div class="val" id="servo-val">90°</div>
+            </div>
             <input type="range" id="servo-slider" min="0" max="180" value="90">
-            <div class="servo-labels">
-                <span>LEFT (0)</span>
-                <span>CENTER (90)</span>
-                <span>RIGHT (180)</span>
+            <div class="slider-labels">
+                <span>LEFT (0)</span><span>CENTER (90)</span><span>RIGHT (180)</span>
             </div>
         </div>
 
-        <!-- Motor Controls -->
-        <div class="block-card">
-            <div class="label-group">
-                <h3>Speed Setting</h3>
-                <div class="val-display" id="speed-val" style="color: var(--success);">50%</div>
+        <!-- Motor -->
+        <div class="card">
+            <div class="label-row">
+                <h3 style="margin:0">Speed Setting</h3>
+                <div class="val" id="speed-val" style="color:var(--success)">50%</div>
             </div>
-            <div class="motor-controls">
-                <input type="range" id="speed-slider" class="speed-slider" min="0" max="100" value="50">
-                <div class="speed-labels">
-                    <span>0% (STOP)</span>
-                    <span>50% (MODERATE)</span>
-                    <span>100% (MAX)</span>
-                </div>
-
-                <div class="drive-buttons">
-                    <button class="drive-btn btn-fwd" id="btn-fwd">Forward (Hold)</button>
-                    <button class="drive-btn btn-bwd" id="btn-bwd">Backward (Hold)</button>
-                </div>
+            <input type="range" id="speed-slider" class="speed-slider" min="0" max="100" value="50">
+            <div class="slider-labels">
+                <span>0%</span><span>50%</span><span>100%</span>
             </div>
-        </div>
-
-        <!-- Sensor Feeds -->
-        <div class="block-card">
-            <div class="label-group">
-                <h3>IMU Sensor Feed</h3>
-            </div>
-            <div class="sensor-data-grid">
-                <div class="sensor-module">
-                    <h4>GYRO (Facing Angle)</h4>
-                    <div class="sensor-stat" id="gyro-z">0.00 °/s</div>
-                    <div class="sensor-sub" id="gyro-sub">X: 0.00 | Y: 0.00</div>
-                </div>
-                <div class="sensor-module">
-                    <h4>ACCELERATION</h4>
-                    <div class="sensor-stat" id="accel-y">0.00 g</div>
-                    <div class="sensor-sub" id="accel-sub">X: 0.00 | Z: 0.00</div>
-                </div>
+            <div class="drive-row">
+                <button class="drive-btn btn-fwd" id="btn-fwd">Forward (Hold)</button>
+                <button class="drive-btn btn-bwd" id="btn-bwd">Backward (Hold)</button>
             </div>
         </div>
 
@@ -329,114 +427,121 @@
     </div>
 
     <script>
+        // DOM elements
         const servoSlider = document.getElementById('servo-slider');
         const servoVal = document.getElementById('servo-val');
-
         const speedSlider = document.getElementById('speed-slider');
         const speedVal = document.getElementById('speed-val');
-
         const btnFwd = document.getElementById('btn-fwd');
         const btnBwd = document.getElementById('btn-bwd');
         const stopBtn = document.getElementById('stop-btn');
-
-        // Sensor UI
-        const gyroZInfo = document.getElementById('gyro-z');
-        const gyroSubInfo = document.getElementById('gyro-sub');
-        const accelYInfo = document.getElementById('accel-y');
-        const accelSubInfo = document.getElementById('accel-sub');
+        const resetBtn = document.getElementById('reset-btn');
 
         let isDriving = false;
-        let driveDirection = 0; // 1 = FWD, -1 = BWD, 0 = STOP
+        let driveDirection = 0;
 
-        // --- Servo Logic ---
+        // --- Servo ---
         let servoTimeout = null;
         servoSlider.addEventListener('input', (e) => {
-            const angle = e.target.value;
-            servoVal.textContent = angle + '°';
-
+            servoVal.textContent = e.target.value + '°';
             if (servoTimeout) clearTimeout(servoTimeout);
-            servoTimeout = setTimeout(() => sendServo(angle), 50);
+            servoTimeout = setTimeout(() => {
+                fetch('/api/servo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ angle: e.target.value })
+                }).catch(console.error);
+            }, 50);
         });
 
-        function sendServo(angle) {
-            fetch('/api/servo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ angle: angle })
-            }).catch(console.error);
-        }
-
-        // --- Motor Logic ---
-        function sendMotor(speedMult) {
-            // Speed sent to API is -100 to 100
-            const maxSpeed = parseFloat(speedSlider.value);
-            const actualSpeed = maxSpeed * speedMult;
+        // --- Motor ---
+        function sendMotor(mult) {
+            const speed = parseFloat(speedSlider.value) * mult;
             fetch('/api/motor', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ speed: actualSpeed })
+                body: JSON.stringify({ speed: speed })
             }).catch(console.error);
         }
 
         speedSlider.addEventListener('input', (e) => {
             speedVal.textContent = e.target.value + '%';
-            // If they are currently holding a button, update the speed live
-            if (isDriving) {
-                sendMotor(driveDirection);
-            }
+            if (isDriving) sendMotor(driveDirection);
         });
 
-        // Forward
         const startFwd = (e) => { e.preventDefault(); isDriving = true; driveDirection = 1; sendMotor(1); };
         const endFwd = (e) => { e.preventDefault(); isDriving = false; driveDirection = 0; sendMotor(0); };
-
         btnFwd.addEventListener('mousedown', startFwd);
         btnFwd.addEventListener('mouseup', endFwd);
         btnFwd.addEventListener('mouseleave', endFwd);
         btnFwd.addEventListener('touchstart', startFwd, { passive: false });
         btnFwd.addEventListener('touchend', endFwd);
 
-        // Backward
         const startBwd = (e) => { e.preventDefault(); isDriving = true; driveDirection = -1; sendMotor(-1); };
         const endBwd = (e) => { e.preventDefault(); isDriving = false; driveDirection = 0; sendMotor(0); };
-
         btnBwd.addEventListener('mousedown', startBwd);
         btnBwd.addEventListener('mouseup', endBwd);
         btnBwd.addEventListener('mouseleave', endBwd);
         btnBwd.addEventListener('touchstart', startBwd, { passive: false });
         btnBwd.addEventListener('touchend', endBwd);
 
-        // --- IMU Polling ---
-        setInterval(() => {
-            fetch('/api/sensors')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success' || data.status === 'mock') {
-                        // Gyro
-                        gyroZInfo.textContent = data.gyro.z.toFixed(2) + ' °/s';
-                        gyroSubInfo.textContent = `X: ${data.gyro.x.toFixed(2)} | Y: ${data.gyro.y.toFixed(2)}`;
-
-                        // Accel
-                        accelYInfo.textContent = data.accel.y.toFixed(2) + ' g';
-                        accelSubInfo.textContent = `X: ${data.accel.x.toFixed(2)} | Z: ${data.accel.z.toFixed(2)}`;
-                    }
-                })
-                .catch(err => {
-                    // silently fail or note error loosely
-                });
-        }, 300); // 300ms polling
-
-        // --- Stop Button ---
+        // --- Stop ---
         stopBtn.addEventListener('click', () => {
-            isDriving = false;
-            driveDirection = 0;
-            servoSlider.value = 90;
-            servoVal.textContent = '90°';
-
-            // Speed slider stays the same, just stop operations
+            isDriving = false; driveDirection = 0;
+            servoSlider.value = 90; servoVal.textContent = '90°';
             fetch('/api/stop', { method: 'POST' });
         });
 
+        // --- Reset IMU ---
+        resetBtn.addEventListener('click', () => {
+            fetch('/api/reset_imu', { method: 'POST' });
+        });
+
+        // --- Sensor Polling ---
+        setInterval(() => {
+            fetch('/api/sensors').then(r => r.json()).then(d => {
+                if (d.status !== 'success') return;
+
+                // Fusion
+                document.getElementById('fused-yaw').innerHTML = d.fusion.fused_yaw.toFixed(2) + '<span class="unit">°</span>';
+                document.getElementById('fused-speed').innerHTML = d.fusion.fused_speed.toFixed(2) + '<span class="unit">m/s</span>';
+
+                // IMU
+                document.getElementById('imu-yaw').innerHTML = d.imu.yaw.toFixed(2) + '<span class="unit">°</span>';
+                document.getElementById('imu-pitch').innerHTML = d.imu.pitch.toFixed(2) + '<span class="unit">°</span>';
+                document.getElementById('imu-roll').innerHTML = d.imu.roll.toFixed(2) + '<span class="unit">°</span>';
+
+                document.getElementById('ax').innerHTML = d.imu.accel.x.toFixed(3) + '<span class="unit">g</span>';
+                document.getElementById('ay').innerHTML = d.imu.accel.y.toFixed(3) + '<span class="unit">g</span>';
+                document.getElementById('az').innerHTML = d.imu.accel.z.toFixed(3) + '<span class="unit">g</span>';
+
+                document.getElementById('gx').innerHTML = d.imu.gyro.x.toFixed(2) + '<span class="unit">°/s</span>';
+                document.getElementById('gy').innerHTML = d.imu.gyro.y.toFixed(2) + '<span class="unit">°/s</span>';
+                document.getElementById('gz').innerHTML = d.imu.gyro.z.toFixed(2) + '<span class="unit">°/s</span>';
+
+                // GPS
+                document.getElementById('gps-lat').textContent = d.gps.lat !== 0 ? d.gps.lat.toFixed(6) : '--';
+                document.getElementById('gps-lon').textContent = d.gps.lon !== 0 ? d.gps.lon.toFixed(6) : '--';
+                document.getElementById('gps-speed').innerHTML = d.gps.speed.toFixed(2) + '<span class="unit">m/s</span>';
+                document.getElementById('gps-heading').innerHTML = d.gps.heading.toFixed(2) + '<span class="unit">°</span>';
+
+                const fixEl = document.getElementById('gps-fix');
+                if (d.gps.has_fix) {
+                    fixEl.textContent = 'FIX (' + d.gps.satellites + ' sats)';
+                    fixEl.style.color = 'var(--success)';
+                } else {
+                    fixEl.textContent = 'NO FIX';
+                    fixEl.style.color = 'var(--danger)';
+                }
+
+                // State
+                const badge = document.getElementById('state-badge');
+                badge.textContent = d.state.state;
+                const stateColors = { IDLE: 'var(--muted)', MOVING: 'var(--success)', STOPPED: 'var(--warning)', NAVIGATING: 'var(--accent)' };
+                badge.style.color = stateColors[d.state.state] || 'var(--muted)';
+                badge.style.borderColor = stateColors[d.state.state] || 'var(--muted)';
+            }).catch(() => { });
+        }, 150); // ~7Hz UI refresh
     </script>
 </body>
 
