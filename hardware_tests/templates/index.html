@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jager Hardware Test</title>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Orbitron:wght@500;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-color: #0f172a;
@@ -16,19 +18,20 @@
             --text-mut: #94a3b8;
             --danger: #ef4444;
             --success: #22c55e;
+            --warning: #f59e0b;
         }
 
         body {
             margin: 0;
-            padding: 0;
+            padding: 20px 0;
             background-color: var(--bg-color);
             color: var(--text-main);
             font-family: 'Outfit', sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
-            overflow: hidden;
+            overflow-y: auto;
         }
 
         .container {
@@ -65,15 +68,7 @@
             font-size: 14px;
         }
 
-        .controls-grid {
-            display: grid;
-            grid-template-columns: 1fr 100px;
-            /* Motor uses left space, Speed uses right vertical column */
-            gap: 30px;
-            align-items: center;
-        }
-
-        /* --- Custom Range Slider Base --- */
+        /* --- Custom Range Slider --- */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -109,48 +104,16 @@
             transform: scale(1.2);
         }
 
-        /* --- Motor Block (Vertical) --- */
-        .motor-block {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 20px 10px;
-            border-radius: 15px;
-            height: 250px;
+        .speed-slider::-webkit-slider-thumb {
+            background: var(--success) !important;
+            box-shadow: 0 0 10px var(--success) !important;
         }
 
-        .vertical-slider-container {
-            flex-grow: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            height: 100%;
-            width: 40px;
-        }
-
-        .vertical-slider {
-            /* Transform horizontal slider to vertical */
-            transform: rotate(-90deg);
-            width: 180px;
-            height: 12px;
-            margin: 0;
-        }
-
-        /* --- Servo Block (Horizontal) --- */
-        .servo-block {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        /* --- Blocks --- */
+        .block-card {
             background: rgba(0, 0, 0, 0.2);
             padding: 20px;
             border-radius: 15px;
-        }
-
-        .servo-slider {
-            width: 100%;
         }
 
         .label-group {
@@ -172,12 +135,103 @@
             background: rgba(0, 0, 0, 0.4);
             padding: 4px 12px;
             border-radius: 8px;
-            font-family: monospace;
+            font-family: 'Orbitron', monospace;
             font-size: 18px;
-            color: var(--success);
+            color: var(--accent);
             font-weight: bold;
             min-width: 50px;
             text-align: center;
+        }
+
+        .servo-labels,
+        .speed-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-mut);
+            font-weight: bold;
+            user-select: none;
+        }
+
+        /* --- Motor Controls (Buttons & Speed) --- */
+        .motor-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .drive-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .drive-btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            color: white;
+            transition: all 0.1s;
+            text-transform: uppercase;
+        }
+
+        .btn-fwd {
+            background: var(--success);
+        }
+
+        .btn-fwd:active {
+            transform: translateY(4px);
+            filter: brightness(0.8);
+        }
+
+        .btn-bwd {
+            background: var(--warning);
+        }
+
+        .btn-bwd:active {
+            transform: translateY(4px);
+            filter: brightness(0.8);
+        }
+
+        /* --- Sensor Data Block --- */
+        .sensor-data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .sensor-module {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .sensor-module h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: var(--text-mut);
+            text-transform: uppercase;
+        }
+
+        .sensor-stat {
+            font-family: 'Orbitron', monospace;
+            font-size: 22px;
+            color: var(--text-main);
+            margin: 5px 0;
+        }
+
+        .sensor-sub {
+            font-size: 11px;
+            color: #64748b;
         }
 
         /* --- Stop Button --- */
@@ -205,27 +259,6 @@
         .stop-btn:hover {
             background: #f87171;
         }
-
-        .axis-labels {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            height: 180px;
-            font-size: 12px;
-            color: var(--text-mut);
-            font-weight: bold;
-            user-select: none;
-        }
-
-        .servo-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-            font-size: 12px;
-            color: var(--text-mut);
-            font-weight: bold;
-            user-select: none;
-        }
     </style>
 </head>
 
@@ -234,41 +267,60 @@
     <div class="container">
         <div class="header">
             <h1>HARDWARE TEST</h1>
-            <p>Direct Servo & Motor Injection</p>
+            <p>IMU Diagnostics & Injection</p>
         </div>
 
-        <div class="controls-grid">
-            <!-- Steering / Servo -->
-            <div class="servo-block">
-                <div class="label-group">
-                    <h3>Servo Angle</h3>
-                    <div class="val-display" id="servo-val">90°</div>
+        <!-- Steering / Servo -->
+        <div class="block-card">
+            <div class="label-group">
+                <h3>Servo Angle</h3>
+                <div class="val-display" id="servo-val">90°</div>
+            </div>
+            <!-- 0 to 180, default 90 (center) -->
+            <input type="range" id="servo-slider" min="0" max="180" value="90">
+            <div class="servo-labels">
+                <span>LEFT (0)</span>
+                <span>CENTER (90)</span>
+                <span>RIGHT (180)</span>
+            </div>
+        </div>
+
+        <!-- Motor Controls -->
+        <div class="block-card">
+            <div class="label-group">
+                <h3>Speed Setting</h3>
+                <div class="val-display" id="speed-val" style="color: var(--success);">50%</div>
+            </div>
+            <div class="motor-controls">
+                <input type="range" id="speed-slider" class="speed-slider" min="0" max="100" value="50">
+                <div class="speed-labels">
+                    <span>0% (STOP)</span>
+                    <span>50% (MODERATE)</span>
+                    <span>100% (MAX)</span>
                 </div>
-                <!-- 0 to 180, default 90 (center) -->
-                <input type="range" id="servo-slider" class="servo-slider" min="0" max="180" value="90">
-                <div class="servo-labels">
-                    <span>LEFT (0)</span>
-                    <span>CENTER (90)</span>
-                    <span>RIGHT (180)</span>
+
+                <div class="drive-buttons">
+                    <button class="drive-btn btn-fwd" id="btn-fwd">Forward (Hold)</button>
+                    <button class="drive-btn btn-bwd" id="btn-bwd">Backward (Hold)</button>
                 </div>
             </div>
+        </div>
 
-            <!-- Motor / Speed -->
-            <div class="motor-block">
-                <div class="label-group" style="margin-bottom: 20px; justify-content: center;">
-                    <div class="val-display" id="motor-val">0</div>
+        <!-- Sensor Feeds -->
+        <div class="block-card">
+            <div class="label-group">
+                <h3>IMU Sensor Feed</h3>
+            </div>
+            <div class="sensor-data-grid">
+                <div class="sensor-module">
+                    <h4>GYRO (Facing Angle)</h4>
+                    <div class="sensor-stat" id="gyro-z">0.00 °/s</div>
+                    <div class="sensor-sub" id="gyro-sub">X: 0.00 | Y: 0.00</div>
                 </div>
-
-                <div style="display: flex; gap: 15px; align-items: center; height: 180px;">
-                    <div class="axis-labels">
-                        <span>+100</span>
-                        <span>0</span>
-                        <span>-100</span>
-                    </div>
-                    <div class="vertical-slider-container">
-                        <!-- -100 to 100, default 0 (stop) -->
-                        <input type="range" id="motor-slider" class="vertical-slider" min="-100" max="100" value="0">
-                    </div>
+                <div class="sensor-module">
+                    <h4>ACCELERATION</h4>
+                    <div class="sensor-stat" id="accel-y">0.00 g</div>
+                    <div class="sensor-sub" id="accel-sub">X: 0.00 | Z: 0.00</div>
                 </div>
             </div>
         </div>
@@ -280,81 +332,108 @@
         const servoSlider = document.getElementById('servo-slider');
         const servoVal = document.getElementById('servo-val');
 
-        const motorSlider = document.getElementById('motor-slider');
-        const motorVal = document.getElementById('motor-val');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedVal = document.getElementById('speed-val');
 
+        const btnFwd = document.getElementById('btn-fwd');
+        const btnBwd = document.getElementById('btn-bwd');
         const stopBtn = document.getElementById('stop-btn');
 
-        // Debounce variables to avoid flooding backend
-        let servoTimeout = null;
-        let motorTimeout = null;
+        // Sensor UI
+        const gyroZInfo = document.getElementById('gyro-z');
+        const gyroSubInfo = document.getElementById('gyro-sub');
+        const accelYInfo = document.getElementById('accel-y');
+        const accelSubInfo = document.getElementById('accel-sub');
+
+        let isDriving = false;
+        let driveDirection = 0; // 1 = FWD, -1 = BWD, 0 = STOP
 
         // --- Servo Logic ---
+        let servoTimeout = null;
         servoSlider.addEventListener('input', (e) => {
             const angle = e.target.value;
             servoVal.textContent = angle + '°';
 
             if (servoTimeout) clearTimeout(servoTimeout);
-            servoTimeout = setTimeout(() => sendServo(angle), 50); // 50ms throttle
+            servoTimeout = setTimeout(() => sendServo(angle), 50);
         });
-
-        // Optional: snap back to center for steering automatically?
-        // Commented out to allow steady precise testing.
-        /*
-        servoSlider.addEventListener('mouseup', () => resetServo());
-        servoSlider.addEventListener('touchend', () => resetServo());
-        function resetServo() {
-            servoSlider.value = 90;
-            servoVal.textContent = '90°';
-            sendServo(90);
-        }
-        */
 
         function sendServo(angle) {
             fetch('/api/servo', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ angle: angle })
-            }).catch(err => console.error("Servo API Error:", err));
+            }).catch(console.error);
         }
 
         // --- Motor Logic ---
-        motorSlider.addEventListener('input', (e) => {
-            const speed = e.target.value;
-            motorVal.textContent = speed;
-
-            if (motorTimeout) clearTimeout(motorTimeout);
-            motorTimeout = setTimeout(() => sendMotor(speed), 50);
-        });
-
-        // Auto stop when letting go of motor slider
-        motorSlider.addEventListener('mouseup', () => stopMotor());
-        motorSlider.addEventListener('touchend', () => stopMotor());
-        motorSlider.addEventListener('mouseleave', () => stopMotor()); // safety
-
-        function stopMotor() {
-            motorSlider.value = 0;
-            motorVal.textContent = '0';
-            sendMotor(0);
-        }
-
-        function sendMotor(speed) {
+        function sendMotor(speedMult) {
+            // Speed sent to API is -100 to 100
+            const maxSpeed = parseFloat(speedSlider.value);
+            const actualSpeed = maxSpeed * speedMult;
             fetch('/api/motor', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ speed: speed })
-            }).catch(err => console.error("Motor API Error:", err));
+                body: JSON.stringify({ speed: actualSpeed })
+            }).catch(console.error);
         }
+
+        speedSlider.addEventListener('input', (e) => {
+            speedVal.textContent = e.target.value + '%';
+            // If they are currently holding a button, update the speed live
+            if (isDriving) {
+                sendMotor(driveDirection);
+            }
+        });
+
+        // Forward
+        const startFwd = (e) => { e.preventDefault(); isDriving = true; driveDirection = 1; sendMotor(1); };
+        const endFwd = (e) => { e.preventDefault(); isDriving = false; driveDirection = 0; sendMotor(0); };
+
+        btnFwd.addEventListener('mousedown', startFwd);
+        btnFwd.addEventListener('mouseup', endFwd);
+        btnFwd.addEventListener('mouseleave', endFwd);
+        btnFwd.addEventListener('touchstart', startFwd, { passive: false });
+        btnFwd.addEventListener('touchend', endFwd);
+
+        // Backward
+        const startBwd = (e) => { e.preventDefault(); isDriving = true; driveDirection = -1; sendMotor(-1); };
+        const endBwd = (e) => { e.preventDefault(); isDriving = false; driveDirection = 0; sendMotor(0); };
+
+        btnBwd.addEventListener('mousedown', startBwd);
+        btnBwd.addEventListener('mouseup', endBwd);
+        btnBwd.addEventListener('mouseleave', endBwd);
+        btnBwd.addEventListener('touchstart', startBwd, { passive: false });
+        btnBwd.addEventListener('touchend', endBwd);
+
+        // --- IMU Polling ---
+        setInterval(() => {
+            fetch('/api/sensors')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success' || data.status === 'mock') {
+                        // Gyro
+                        gyroZInfo.textContent = data.gyro.z.toFixed(2) + ' °/s';
+                        gyroSubInfo.textContent = `X: ${data.gyro.x.toFixed(2)} | Y: ${data.gyro.y.toFixed(2)}`;
+
+                        // Accel
+                        accelYInfo.textContent = data.accel.y.toFixed(2) + ' g';
+                        accelSubInfo.textContent = `X: ${data.accel.x.toFixed(2)} | Z: ${data.accel.z.toFixed(2)}`;
+                    }
+                })
+                .catch(err => {
+                    // silently fail or note error loosely
+                });
+        }, 300); // 300ms polling
 
         // --- Stop Button ---
         stopBtn.addEventListener('click', () => {
-            // Reset UI
-            motorSlider.value = 0;
-            motorVal.textContent = '0';
+            isDriving = false;
+            driveDirection = 0;
             servoSlider.value = 90;
             servoVal.textContent = '90°';
 
-            // Tell backend
+            // Speed slider stays the same, just stop operations
             fetch('/api/stop', { method: 'POST' });
         });
 
