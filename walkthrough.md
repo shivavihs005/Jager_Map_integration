@@ -117,8 +117,14 @@ This script will:
 ## 3. Setup & Running
 1.  **Start the Server**:
     ```bash
+    cd /home/pi/my-projects/Jager_Map_integration
     source env/bin/activate
     python app.py
+
+    cd /home/pi/my-projects/Jager_Map_integration/hardware_tests
+    python app.py   
+
+    
     ```
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -217,4 +223,5 @@ If you want to test the hardware components separately without running the full 
     -   Use the on-screen Joystick or Buttons to drive.
     -   Check if motors spin correctly (Forward/Reverse).
     -   Check if steering servo moves correctly (Left/Right).
+ 
 

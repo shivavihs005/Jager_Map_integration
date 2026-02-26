@@ -16,6 +16,9 @@ source env/bin/activate
 pip install -r requirements.txt
 pip install requests
 pip install RPLCD smbus2
+pip install joystick
+pip install numpy
+
 
 # Enable Serial Port (Instructional)
 echo "---------------------------------------------------"

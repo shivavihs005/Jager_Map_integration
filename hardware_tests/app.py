@@ -122,8 +122,7 @@ def stop_all():
 
 @app.route('/api/reset_imu', methods=['POST'])
 def reset_imu():
-    import numpy as np
-    imu.q = np.array([1.0, 0.0, 0.0, 0.0])
+    imu.q = [1.0, 0.0, 0.0, 0.0]
     with data_lock:
         fusion.yaw = 0.0
     return jsonify({"status": "success"})

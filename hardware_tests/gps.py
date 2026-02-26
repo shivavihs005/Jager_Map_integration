@@ -1,6 +1,6 @@
 """
 gps.py — NMEA GPS Parser for NEO-6M
-Parses $GPRMC/$GNRMC sentences for lat, lon, speed, and heading.
+Auto-detects baud rate. Parses $GPRMC/$GNRMC for lat, lon, speed, heading.
 """
 
 import time
@@ -13,9 +13,12 @@ except ImportError:
     GPS_LIBS_AVAILABLE = False
     print("[GPS] pyserial or pynmea2 not found. GPS will run in mock mode.")
 
+GPS_PORT = "/dev/serial0"
+GPS_BAUDS = [9600, 38400, 57600]
+
 
 class GPS:
-    def __init__(self, port="/dev/serial0", baud=9600):
+    def __init__(self, port=GPS_PORT):
         self.lat = 0.0
         self.lon = 0.0
         self.speed = 0.0       # m/s
@@ -23,6 +26,7 @@ class GPS:
         self.has_fix = False
         self.satellites = 0
         self.last_update = 0
+        self.baud_rate = 0
 
         self.ser = None
         self.mock_mode = True
@@ -30,12 +34,32 @@ class GPS:
         if not GPS_LIBS_AVAILABLE:
             return
 
-        try:
-            self.ser = serial.Serial(port, baud, timeout=1)
+        self.ser = self._auto_detect_baud(port)
+        if self.ser:
             self.mock_mode = False
-            print(f"[GPS] Serial port {port} opened at {baud} baud.")
-        except Exception as e:
-            print(f"[GPS] Could not open serial port: {e}. Running in mock mode.")
+        else:
+            print("[GPS] No valid baud rate detected. Running in mock mode.")
+
+    def _auto_detect_baud(self, port):
+        """Try multiple baud rates and return the first one that gives valid NMEA."""
+        for baud in GPS_BAUDS:
+            try:
+                print(f"[GPS] Trying baud rate: {baud}...")
+                ser = serial.Serial(port, baud, timeout=1)
+                time.sleep(1)
+
+                # Read a few lines to check for NMEA sentences
+                for _ in range(5):
+                    line = ser.readline().decode('ascii', errors='replace').strip()
+                    if line.startswith('$GP') or line.startswith('$GN'):
+                        print(f"[GPS] Locked onto baud {baud}: {line}")
+                        self.baud_rate = baud
+                        return ser
+
+                ser.close()
+            except Exception as e:
+                print(f"[GPS] Baud {baud} failed: {e}")
+        return None
 
     def update(self):
         """Read one line from GPS and parse if valid."""
@@ -97,5 +121,6 @@ class GPS:
             "speed": round(self.speed, 2),
             "heading": round(self.heading, 2),
             "has_fix": self.has_fix,
-            "satellites": self.satellites
+            "satellites": self.satellites,
+            "baud": self.baud_rate
         }

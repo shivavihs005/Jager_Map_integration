@@ -1,11 +1,11 @@
 """
 imu.py — Madgwick Quaternion-Based IMU for MPU-6500
+Pure Python implementation (no numpy dependency).
 Provides stable yaw/pitch/roll via quaternion fusion of accel + gyro.
 """
 
 import time
-import numpy as np
-from math import radians
+import math
 
 try:
     from smbus2 import SMBus
@@ -32,20 +32,20 @@ class IMU:
         self.mock_mode = True
 
         # Quaternion state [w, x, y, z]
-        self.q = np.array([1.0, 0.0, 0.0, 0.0])
+        self.q = [1.0, 0.0, 0.0, 0.0]
 
-        # Madgwick filter gain (higher = more accel trust, lower = more gyro trust)
+        # Madgwick filter gain
         self.beta = 0.1
 
         # Timing
         self.last_time = time.time()
 
         # Raw cached values
-        self.accel = np.array([0.0, 0.0, 1.0])
-        self.gyro = np.array([0.0, 0.0, 0.0])
+        self.accel = [0.0, 0.0, 1.0]
+        self.gyro = [0.0, 0.0, 0.0]
 
         # Gyro bias from calibration
-        self.gyro_bias = np.array([0.0, 0.0, 0.0])
+        self.gyro_bias = [0.0, 0.0, 0.0]
 
         if SMBus is None:
             print("[IMU] No SMBus module found. Running in mock mode.")
@@ -53,12 +53,9 @@ class IMU:
 
         try:
             self.bus = SMBus(1)
-            # Wake up MPU-6500
             self.bus.write_byte_data(MPU_ADDR, PWR_MGMT_1, 0x00)
             time.sleep(0.1)
-            # Gyro ±250°/s
             self.bus.write_byte_data(MPU_ADDR, GYRO_CONFIG, 0x00)
-            # Accel ±2g
             self.bus.write_byte_data(MPU_ADDR, ACCEL_CONFIG, 0x00)
             self.mock_mode = False
             print("[IMU] MPU-6500 initialized successfully.")
@@ -72,12 +69,14 @@ class IMU:
             return
 
         print("[IMU] Calibrating gyro bias... keep car still.")
-        total = np.array([0.0, 0.0, 0.0])
+        total = [0.0, 0.0, 0.0]
         for _ in range(samples):
             _, gyro = self._read_raw()
-            total += gyro
+            total[0] += gyro[0]
+            total[1] += gyro[1]
+            total[2] += gyro[2]
             time.sleep(0.004)
-        self.gyro_bias = total / samples
+        self.gyro_bias = [t / samples for t in total]
         print(f"[IMU] Bias calibrated: {self.gyro_bias}")
 
     def _read_word(self, reg):
@@ -101,7 +100,7 @@ class IMU:
         gy = self._read_word(GYRO_XOUT_H + 2) / GYRO_SCALE
         gz = self._read_word(GYRO_XOUT_H + 4) / GYRO_SCALE
 
-        return np.array([ax, ay, az]), np.array([gx, gy, gz])
+        return [ax, ay, az], [gx, gy, gz]
 
     def update(self):
         """Read sensors and run one Madgwick filter iteration."""
@@ -115,97 +114,99 @@ class IMU:
         accel_raw, gyro_raw = self._read_raw()
 
         # Remove calibrated bias and convert gyro to rad/s
-        gyro_corrected = gyro_raw - self.gyro_bias
-        gx = radians(gyro_corrected[0])
-        gy = radians(gyro_corrected[1])
-        gz = radians(gyro_corrected[2])
+        gx = math.radians(gyro_raw[0] - self.gyro_bias[0])
+        gy = math.radians(gyro_raw[1] - self.gyro_bias[1])
+        gz = math.radians(gyro_raw[2] - self.gyro_bias[2])
 
         self.accel = accel_raw
-        self.gyro = gyro_corrected
+        self.gyro = [gyro_raw[i] - self.gyro_bias[i] for i in range(3)]
 
         # --- Madgwick AHRS Update ---
-        q = self.q
-        q0, q1, q2, q3 = q
+        q0, q1, q2, q3 = self.q
 
         # Rate of change of quaternion from gyroscope
-        q_dot = 0.5 * np.array([
-            -q1 * gx - q2 * gy - q3 * gz,
-             q0 * gx + q2 * gz - q3 * gy,
-             q0 * gy - q1 * gz + q3 * gx,
-             q0 * gz + q1 * gy - q2 * gx
-        ])
+        qd0 = 0.5 * (-q1 * gx - q2 * gy - q3 * gz)
+        qd1 = 0.5 * ( q0 * gx + q2 * gz - q3 * gy)
+        qd2 = 0.5 * ( q0 * gy - q1 * gz + q3 * gx)
+        qd3 = 0.5 * ( q0 * gz + q1 * gy - q2 * gx)
 
         # Accelerometer correction (gradient descent)
-        a = accel_raw.copy()
-        a_norm = np.linalg.norm(a)
+        ax, ay, az = accel_raw
+        a_norm = math.sqrt(ax*ax + ay*ay + az*az)
+
         if a_norm > 0.01:
-            a /= a_norm
+            ax /= a_norm
+            ay /= a_norm
+            az /= a_norm
 
             # Objective function
-            f = np.array([
-                2.0 * (q1 * q3 - q0 * q2) - a[0],
-                2.0 * (q0 * q1 + q2 * q3) - a[1],
-                2.0 * (0.5 - q1**2 - q2**2) - a[2]
-            ])
+            f0 = 2.0 * (q1*q3 - q0*q2) - ax
+            f1 = 2.0 * (q0*q1 + q2*q3) - ay
+            f2 = 2.0 * (0.5 - q1*q1 - q2*q2) - az
 
-            # Jacobian
-            J = np.array([
-                [-2*q2,  2*q3, -2*q0,  2*q1],
-                [ 2*q1,  2*q0,  2*q3,  2*q2],
-                [ 0,    -4*q1, -4*q2,  0   ]
-            ])
+            # Jacobian^T * f (gradient step)
+            s0 = -2*q2*f0 + 2*q1*f1
+            s1 =  2*q3*f0 + 2*q0*f1 - 4*q1*f2
+            s2 = -2*q0*f0 + 2*q3*f1 - 4*q2*f2
+            s3 =  2*q1*f0 + 2*q2*f1
 
-            # Gradient step
-            step = J.T @ f
-            step_norm = np.linalg.norm(step)
-            if step_norm > 0:
-                step /= step_norm
+            s_norm = math.sqrt(s0*s0 + s1*s1 + s2*s2 + s3*s3)
+            if s_norm > 0:
+                s0 /= s_norm
+                s1 /= s_norm
+                s2 /= s_norm
+                s3 /= s_norm
 
-            q_dot -= self.beta * step
+            qd0 -= self.beta * s0
+            qd1 -= self.beta * s1
+            qd2 -= self.beta * s2
+            qd3 -= self.beta * s3
 
         # Integrate
-        q += q_dot * dt
-        q /= np.linalg.norm(q)
-        self.q = q
+        q0 += qd0 * dt
+        q1 += qd1 * dt
+        q2 += qd2 * dt
+        q3 += qd3 * dt
+
+        # Normalize quaternion
+        q_norm = math.sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3)
+        self.q = [q0/q_norm, q1/q_norm, q2/q_norm, q3/q_norm]
 
     def get_yaw(self):
-        """Extract yaw angle from quaternion (degrees, -180 to 180)."""
-        q = self.q
-        yaw = np.degrees(np.arctan2(
-            2.0 * (q[0] * q[3] + q[1] * q[2]),
-            1.0 - 2.0 * (q[2]**2 + q[3]**2)
+        q0, q1, q2, q3 = self.q
+        yaw = math.degrees(math.atan2(
+            2.0 * (q0*q3 + q1*q2),
+            1.0 - 2.0 * (q2*q2 + q3*q3)
         ))
-        return float(yaw)
+        return yaw
 
     def get_pitch(self):
-        q = self.q
-        pitch = np.degrees(np.arcsin(
-            max(-1.0, min(1.0, 2.0 * (q[0] * q[2] - q[3] * q[1])))
-        ))
-        return float(pitch)
+        q0, q1, q2, q3 = self.q
+        val = 2.0 * (q0*q2 - q3*q1)
+        val = max(-1.0, min(1.0, val))
+        return math.degrees(math.asin(val))
 
     def get_roll(self):
-        q = self.q
-        roll = np.degrees(np.arctan2(
-            2.0 * (q[0] * q[1] + q[2] * q[3]),
-            1.0 - 2.0 * (q[1]**2 + q[2]**2)
+        q0, q1, q2, q3 = self.q
+        roll = math.degrees(math.atan2(
+            2.0 * (q0*q1 + q2*q3),
+            1.0 - 2.0 * (q1*q1 + q2*q2)
         ))
-        return float(roll)
+        return roll
 
     def get_data(self):
-        """Return a dict of all IMU outputs."""
         return {
             "yaw": round(self.get_yaw(), 2),
             "pitch": round(self.get_pitch(), 2),
             "roll": round(self.get_roll(), 2),
             "accel": {
-                "x": round(float(self.accel[0]), 3),
-                "y": round(float(self.accel[1]), 3),
-                "z": round(float(self.accel[2]), 3)
+                "x": round(self.accel[0], 3),
+                "y": round(self.accel[1], 3),
+                "z": round(self.accel[2], 3)
             },
             "gyro": {
-                "x": round(float(self.gyro[0]), 2),
-                "y": round(float(self.gyro[1]), 2),
-                "z": round(float(self.gyro[2]), 2)
+                "x": round(self.gyro[0], 2),
+                "y": round(self.gyro[1], 2),
+                "z": round(self.gyro[2], 2)
             }
         }
