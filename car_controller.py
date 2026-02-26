@@ -109,12 +109,6 @@ class CarController:
             print(f"[MOCK] Steering: {angle_percent}")
             return
 
-        # FAILSAFE: Force steering to 0 in autonomous mode
-        from state_machine import state_machine, CarMode
-        if state_machine.current_mode == CarMode.AUTONOMOUS:
-            angle_percent = 0.0
-            print("[FAILSAFE] Autonomous mode - forcing steering to 0 (90 degrees)")
-
         # Clamp (-1 to 1)
         val = max(-1.0, min(1.0, angle_percent))
         

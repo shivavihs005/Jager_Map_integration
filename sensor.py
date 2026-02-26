@@ -3,7 +3,6 @@ import threading
 import math
 import pynmea2
 import serial
-from map_matcher import map_matcher
 
 try:
     from smbus2 import SMBus
@@ -124,8 +123,6 @@ class SensorSystem:
                             if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
                                 lat = msg.latitude
                                 lng = msg.longitude
-                                snapped = map_matcher.match_to_road(lat, lng)
-                                if snapped: lat, lng = snapped
                                 with self.lock:
                                     self.lat = lat
                                     self.lng = lng
@@ -142,8 +139,6 @@ class SensorSystem:
                             if hasattr(msg, 'latitude') and hasattr(msg, 'longitude'):
                                  lat = msg.latitude
                                  lng = msg.longitude
-                                 snapped = map_matcher.match_to_road(lat, lng)
-                                 if snapped: lat, lng = snapped
                                  with self.lock:
                                      self.lat = lat
                                      self.lng = lng
