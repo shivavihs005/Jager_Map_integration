@@ -2,185 +2,134 @@
 
 ## Overview
 
-This document describes the **Behavior Controller** module added to the Jager hardware test stack. It provides high-level driving behaviors (forward, backward, relative yaw turns) controlled from the web dashboard.
+The **Behavior Controller** provides high-level driving behaviors for the Jager autonomous vehicle. The key feature is **TURN_RELATIVE** — a pure rotation maneuver that rotates the vehicle in place without forward drift.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│              Flask App (app.py)          │
-│                                         │
-│  /api/state ──────► BehaviorController  │
-│  /api/turn_relative ──► .set_relative() │
-│  /api/sensors ◄────── .get_data()       │
-│  /api/stop ──────► .set_state("IDLE")   │
-│                                         │
-│  Threads:                               │
-│    sensor_loop     100Hz  (IMU)         │
-│    gps_loop         20Hz  (GPS serial)  │
-│    fusion_loop      20Hz  (IMU+GPS)     │
-│    controller_loop  20Hz  (Behavior)    │
-└─────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────┐
-│  behavior_controller.py                 │
-│                                         │
-│  States:                                │
-│    IDLE · FORWARD · BACKWARD            │
-│    TURN_LEFT · TURN_RIGHT               │
-│    TURN_RELATIVE (P-controller)         │
-│                                         │
-│  Angle Math:                            │
-│    normalize_angle(angle) → [-180,+180] │
-│    calculate_relative_target(cur, Δ)    │
-│                                         │
-│  P-Controller:                          │
-│    error = normalize(target - current)  │
-│    steering = clamp(error × Kp, -1, 1)  │
-│    Auto-stop when |error| ≤ 3°          │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│              Flask App (app.py)           │
+│                                          │
+│  /api/state ──────► BehaviorController   │
+│  /api/turn_relative ──► .set_relative()  │
+│  /api/sensors ◄────── .get_data()        │
+│  /api/stop ──────► .set_state("IDLE")    │
+│                                          │
+│  Threads:                                │
+│    sensor_loop     100Hz  (IMU)          │
+│    gps_loop         20Hz  (GPS serial)   │
+│    fusion_loop      20Hz  (IMU+GPS)      │
+│    controller_loop  20Hz  (Behavior)     │
+└──────────────────────────────────────────┘
 ```
 
 ---
 
-## Files Modified / Created
+## States
 
-| File | Action | Description |
-|------|--------|-------------|
-| `behavior_controller.py` | **NEW** | Standalone controller with states, angle math, P-controller |
-| `app.py` | **MODIFIED** | Added import, controller thread, `/api/state`, `/api/turn_relative` endpoints |
-| `templates/index.html` | **MODIFIED** | Added Behavior Control card, 5 buttons, live controller telemetry |
-
----
-
-## State Machine
-
-| State | Speed | Steering | Notes |
-|-------|-------|----------|-------|
-| `IDLE` | 0 | 0 | Car stopped |
+| State | Motor | Steering | Description |
+|-------|-------|----------|-------------|
+| `IDLE` | 0 | 0 (center) | Fully stopped |
 | `FORWARD` | `user_speed` | 0 | Straight ahead |
 | `BACKWARD` | `-user_speed` | 0 | Reverse |
-| `TURN_LEFT` | 25 | -1.0 | Full left, low speed |
-| `TURN_RIGHT` | 25 | +1.0 | Full right, low speed |
-| `TURN_RELATIVE` | 25 | P-controlled | Proportional yaw tracking |
+| `TURN_RELATIVE` | `ROTATION_SPEED` (20%) | ±1.0 (full lock) | Pure rotation in place |
 
 ---
 
-## Relative Turn — How It Works
+## Pure Rotation Turn — How It Works
 
-1. **User presses Turn +90°** → `POST /api/turn_relative {"angle": 90}`
-2. Controller reads current `fused_yaw` (e.g. `10°`)
-3. Computes `target = normalize(10 + 90) = 100°`
-4. Each 20Hz update cycle:
-   - `error = normalize(100 - current_yaw)`
-   - `steering = clamp(error × 0.015, -1, 1)`
-   - Car drives forward at 25% with proportional steering
-5. When `|error| ≤ 3°` → `car.stop()`, state → `IDLE`
+> **Key insight:** A 90° turn is NOT "drive and steer." It is a **pure rotation maneuver.** The motor provides minimal torque only to rotate the chassis, not to drive forward.
+
+### Sequence
+
+```
+Press Turn +90°
+    → Steering goes full right (+1.0)
+    → Motor applies 20% rotational power
+    → Yaw approaches target
+    → When |error| ≤ 3°:
+        → Motor = 0 (STOP)
+        → Steering = 0 (CENTER)
+        → State = IDLE
+```
+
+### Bang-Bang Steering
+
+- `error > 0` → steering = **+1.0** (full right lock)
+- `error < 0` → steering = **-1.0** (full left lock)
+- No proportional ramping — full lock ensures fastest rotation
 
 ### Boundary Crossing Example
 
 ```
-current_yaw = 170°
-Turn +90°
+current_yaw = 170°,  Turn +90°
 target = normalize(170 + 90) = normalize(260) = -100°
-
-error = normalize(-100 - 170) = normalize(-270) = 90°
-→ car turns right until reaching -100°
+error  = normalize(-100 - 170) = normalize(-270) = +90°
+→ Full right lock until reaching -100°
 ```
 
 ---
 
 ## Tuning Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `Kp` | `0.015` | Proportional gain (0.01–0.02 range) |
-| `TOLERANCE` | `3.0°` | Angle error threshold for auto-stop |
-| `LOW_FORWARD_SPEED` | `25` | Motor power during turns (0–100) |
+| Parameter | Default | Location |
+|-----------|---------|----------|
+| `ROTATION_SPEED` | `20` | `behavior_controller.py` |
+| `TOLERANCE` | `3.0°` | `behavior_controller.py` |
 
-**Tuning tips:**
-- Increase `Kp` for faster response (risk of overshoot)
-- Decrease `Kp` for smoother turns (slower convergence)
-- Increase `TOLERANCE` if car oscillates near target
-- Increase `LOW_FORWARD_SPEED` if car stalls during turns
+- **Increase `ROTATION_SPEED`** if vehicle stalls during turns
+- **Decrease `ROTATION_SPEED`** if vehicle drifts forward during turns
+- **Increase `TOLERANCE`** if vehicle oscillates at target
 
 ---
 
 ## API Endpoints
 
-### `POST /api/state`
-Set the behavior controller state.
-```json
-{ "state": "FORWARD", "speed": 50 }
-```
-Valid states: `IDLE`, `FORWARD`, `BACKWARD`, `TURN_LEFT`, `TURN_RIGHT`
-
-### `POST /api/turn_relative`
-Start a relative yaw turn.
-```json
-{ "angle": 90 }
-```
-Positive = clockwise (right), Negative = counter-clockwise (left)
-
-### `GET /api/sensors` (updated)
-Now includes `controller` object:
-```json
-{
-  "controller": {
-    "controller_state": "TURN_RELATIVE",
-    "target_yaw": 100.0,
-    "current_yaw": 45.23,
-    "error": 54.77,
-    "kp": 0.015
-  }
-}
-```
+| Endpoint | Method | Body | Action |
+|----------|--------|------|--------|
+| `/api/state` | POST | `{"state": "FORWARD", "speed": 50}` | Set state |
+| `/api/turn_relative` | POST | `{"angle": 90}` | Pure rotation turn |
+| `/api/stop` | POST | — | Emergency stop |
+| `/api/sensors` | GET | — | Includes `controller` telemetry |
 
 ---
 
 ## Dashboard UI
 
-The **Behavior Control** card provides:
+| Button | Behavior |
+|--------|----------|
+| ▲ Forward | Hold-to-drive at slider speed |
+| ▼ Backward | Hold-to-drive reverse |
+| ↺ Turn −90° | Click → pure rotation left, auto-stops |
+| ↻ Turn +90° | Click → pure rotation right, auto-stops |
+| ■ Stop | Immediate halt |
 
-| Button | Action |
-|--------|--------|
-| ▲ Forward | `POST /api/state` → `FORWARD` |
-| ▼ Backward | `POST /api/state` → `BACKWARD` |
-| ↺ Turn −90° | `POST /api/turn_relative` → `{"angle": -90}` |
-| ↻ Turn +90° | `POST /api/turn_relative` → `{"angle": 90}` |
-| ■ Stop | `POST /api/state` → `IDLE` |
-
-Live telemetry below the buttons shows:
-- **State** — current controller state
-- **Target** — target yaw angle
-- **Error** — current yaw error (green when ≤3°, red otherwise)
-
-The header state badge now reflects the controller state with color coding.
+Live telemetry shows: **State**, **Target Yaw**, **Error** (green ≤ 3°, red otherwise)
 
 ---
 
 ## Testing Procedure
 
-1. **Deploy** — Copy all files to Raspberry Pi, run `python app.py`
-2. **Open** — Navigate to `http://<pi-ip>:5001`
-3. **Zero IMU** — Press "Zero IMU" to set current heading as 0°
-4. **Forward/Backward** — Press behavior buttons, verify movement
-5. **Turn +90°** — Press, watch:
-   - Badge shows `TURN_RELATIVE`
-   - Target/Error telemetry updates live
-   - Car turns with decreasing steering
-   - Auto-stops near target, badge returns to `IDLE`
-6. **Boundary test** — Rotate near ±170°, then turn ±90° to cross the -180/+180 boundary
-7. **Emergency Stop** — Verify immediate halt from any state
+1. Deploy to Raspberry Pi, run `python app.py`
+2. Open `http://<pi-ip>:5001`
+3. Press **Zero IMU** to set reference heading
+4. Press **Turn +90°** — verify:
+   - Steering locks right, motor slowly rotates
+   - No forward drift
+   - Auto-stops within ±3° of target
+   - Steering returns to center
+5. Press **Turn −90°** — verify same behavior left
+6. Test boundary: rotate near ±170°, then turn ±90°
+7. Test **Forward (hold)** — verify slider speed works
+8. Test **Emergency Stop** — verify immediate halt
 
 ---
 
-## Thread Safety
+## Future Enhancements
 
-- All `fused_yaw` reads go through `data_lock` (shared with `fusion_loop`)
-- The controller has its own dedicated 20Hz thread
-- State transitions are atomic (single variable assignment)
-- The UI polls at 7Hz, never writes to controller state directly
+- **PID control** for smoother final approach
+- **Braking ramp** to decelerate near target
+- **Gyro-only fine adjustment** for sub-degree precision
+- **Drift compensation** using accelerometer feedback
