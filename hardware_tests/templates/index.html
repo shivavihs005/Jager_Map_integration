@@ -290,6 +290,67 @@
         .stop-btn:hover {
             background: #f87171;
         }
+
+        /* Behavior Control */
+        .behavior-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .behavior-btn {
+            padding: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.15s;
+        }
+
+        .behavior-btn:active {
+            transform: translateY(2px);
+            filter: brightness(0.8);
+        }
+
+        .behavior-btn.btn-behavior-fwd {
+            background: var(--success);
+        }
+
+        .behavior-btn.btn-behavior-bwd {
+            background: var(--warning);
+        }
+
+        .behavior-btn.btn-turn-left {
+            background: var(--purple);
+        }
+
+        .behavior-btn.btn-turn-right {
+            background: var(--accent);
+        }
+
+        .behavior-btn.btn-behavior-stop {
+            grid-column: 1 / -1;
+            background: #64748b;
+        }
+
+        .behavior-telemetry {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .behavior-telemetry .metric {
+            padding: 8px 6px;
+        }
+
+        .behavior-telemetry .metric .value {
+            font-size: 16px;
+        }
     </style>
 </head>
 
@@ -423,6 +484,32 @@
             </div>
         </div>
 
+        <!-- Behavior Controller -->
+        <div class="card">
+            <h3>Behavior Control</h3>
+            <div class="behavior-grid">
+                <button class="behavior-btn btn-behavior-fwd" id="bc-fwd">▲ Forward</button>
+                <button class="behavior-btn btn-behavior-bwd" id="bc-bwd">▼ Backward</button>
+                <button class="behavior-btn btn-turn-left" id="bc-turn-left">↺ Turn −90°</button>
+                <button class="behavior-btn btn-turn-right" id="bc-turn-right">↻ Turn +90°</button>
+                <button class="behavior-btn btn-behavior-stop" id="bc-stop">■ Stop</button>
+            </div>
+            <div class="behavior-telemetry">
+                <div class="metric">
+                    <div class="label">State</div>
+                    <div class="value accent" id="ctrl-state" style="font-size:13px">IDLE</div>
+                </div>
+                <div class="metric">
+                    <div class="label">Target</div>
+                    <div class="value warn" id="ctrl-target">0.00<span class="unit">°</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Error</div>
+                    <div class="value" id="ctrl-error">0.00<span class="unit">°</span></div>
+                </div>
+            </div>
+        </div>
+
         <button class="stop-btn" id="stop-btn">EMERGENCY STOP</button>
     </div>
 
@@ -436,6 +523,13 @@
         const btnBwd = document.getElementById('btn-bwd');
         const stopBtn = document.getElementById('stop-btn');
         const resetBtn = document.getElementById('reset-btn');
+
+        // Behavior Controller buttons
+        const bcFwd = document.getElementById('bc-fwd');
+        const bcBwd = document.getElementById('bc-bwd');
+        const bcTurnLeft = document.getElementById('bc-turn-left');
+        const bcTurnRight = document.getElementById('bc-turn-right');
+        const bcStop = document.getElementById('bc-stop');
 
         let isDriving = false;
         let driveDirection = 0;
@@ -497,6 +591,30 @@
             fetch('/api/reset_imu', { method: 'POST' });
         });
 
+        // --- Behavior Controller ---
+        function sendState(state) {
+            const speed = parseFloat(speedSlider.value);
+            fetch('/api/state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: state, speed: speed })
+            }).catch(console.error);
+        }
+
+        function sendTurn(angle) {
+            fetch('/api/turn_relative', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ angle: angle })
+            }).catch(console.error);
+        }
+
+        bcFwd.addEventListener('click', () => sendState('FORWARD'));
+        bcBwd.addEventListener('click', () => sendState('BACKWARD'));
+        bcTurnLeft.addEventListener('click', () => sendTurn(-90));
+        bcTurnRight.addEventListener('click', () => sendTurn(90));
+        bcStop.addEventListener('click', () => sendState('IDLE'));
+
         // --- Sensor Polling ---
         setInterval(() => {
             fetch('/api/sensors').then(r => r.json()).then(d => {
@@ -534,12 +652,26 @@
                     fixEl.style.color = 'var(--danger)';
                 }
 
-                // State
+                // State — show controller state in badge
                 const badge = document.getElementById('state-badge');
-                badge.textContent = d.state.state;
-                const stateColors = { IDLE: 'var(--muted)', MOVING: 'var(--success)', STOPPED: 'var(--warning)', NAVIGATING: 'var(--accent)' };
-                badge.style.color = stateColors[d.state.state] || 'var(--muted)';
-                badge.style.borderColor = stateColors[d.state.state] || 'var(--muted)';
+                const ctrlState = d.controller ? d.controller.controller_state : d.state.state;
+                badge.textContent = ctrlState;
+                const stateColors = {
+                    IDLE: 'var(--muted)', MOVING: 'var(--success)', STOPPED: 'var(--warning)',
+                    NAVIGATING: 'var(--accent)', FORWARD: 'var(--success)', BACKWARD: 'var(--warning)',
+                    TURN_LEFT: 'var(--purple)', TURN_RIGHT: 'var(--accent)', TURN_RELATIVE: 'var(--purple)'
+                };
+                badge.style.color = stateColors[ctrlState] || 'var(--muted)';
+                badge.style.borderColor = stateColors[ctrlState] || 'var(--muted)';
+
+                // Controller telemetry
+                if (d.controller) {
+                    document.getElementById('ctrl-state').textContent = d.controller.controller_state;
+                    document.getElementById('ctrl-target').innerHTML = d.controller.target_yaw.toFixed(2) + '<span class="unit">°</span>';
+                    const errEl = document.getElementById('ctrl-error');
+                    errEl.innerHTML = d.controller.error.toFixed(2) + '<span class="unit">°</span>';
+                    errEl.style.color = Math.abs(d.controller.error) <= 3 ? 'var(--success)' : 'var(--danger)';
+                }
             }).catch(() => { });
         }, 150); // ~7Hz UI refresh
     </script>

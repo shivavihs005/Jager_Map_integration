@@ -33,6 +33,7 @@ from imu import IMU
 from gps import GPS
 from fusion import SensorFusion
 from state_machine import StateMachine
+from behavior_controller import BehaviorController
 
 # --- Initialize Stack ---
 imu = IMU()
@@ -41,6 +42,9 @@ fusion = SensorFusion()
 sm = StateMachine()
 
 data_lock = threading.Lock()
+
+# --- Initialize Behavior Controller ---
+controller = BehaviorController(car, fusion, data_lock)
 
 
 def sensor_loop():
@@ -71,6 +75,13 @@ def fusion_loop():
             fusion.update(imu_yaw, gps_data["heading"], gps_data["speed"])
             sm.update(gps_data["speed"])
 
+        time.sleep(0.05)  # 20Hz
+
+
+def controller_loop():
+    """Behavior controller loop runs at 20Hz."""
+    while True:
+        controller.update()
         time.sleep(0.05)  # 20Hz
 
 
@@ -107,18 +118,54 @@ def get_sensors():
         fusion_data = fusion.get_data()
         state_data = sm.get_data()
 
+    controller_data = controller.get_data()
+
     return jsonify({
         "status": "success",
         "imu": imu_data,
         "gps": gps_data,
         "fusion": fusion_data,
-        "state": state_data
+        "state": state_data,
+        "controller": controller_data
     })
 
 @app.route('/api/stop', methods=['POST'])
 def stop_all():
+    controller.set_state("IDLE")
     car.stop()
     return jsonify({"status": "success", "message": "Stopped"})
+
+
+@app.route('/api/state', methods=['POST'])
+def set_behavior_state():
+    """Set the behavior controller state (FORWARD, BACKWARD, IDLE, etc.)."""
+    data = request.json
+    state = data.get('state', 'IDLE').upper()
+
+    # Pass user speed from request if provided
+    speed = data.get('speed', None)
+    if speed is not None:
+        controller.user_speed = float(speed)
+
+    controller.set_state(state)
+    return jsonify({"status": "success", "state": state})
+
+
+@app.route('/api/turn_relative', methods=['POST'])
+def turn_relative():
+    """Start a relative yaw turn by the given angle in degrees."""
+    data = request.json
+    angle = float(data.get('angle', 0))
+
+    if angle == 0:
+        return jsonify({"status": "error", "message": "Angle cannot be 0"}), 400
+
+    controller.set_relative_turn(angle)
+    return jsonify({
+        "status": "success",
+        "angle": angle,
+        "target_yaw": controller.target_yaw
+    })
 
 @app.route('/api/reset_imu', methods=['POST'])
 def reset_imu():
@@ -140,7 +187,8 @@ if __name__ == '__main__':
     threading.Thread(target=sensor_loop, daemon=True).start()
     threading.Thread(target=gps_loop, daemon=True).start()
     threading.Thread(target=fusion_loop, daemon=True).start()
+    threading.Thread(target=controller_loop, daemon=True).start()
 
-    print("[READY] All systems online.")
+    print("[READY] All systems online. Behavior controller active.")
     print("Starting Hardware Test Server on port 5001...")
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
