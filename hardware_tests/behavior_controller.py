@@ -145,8 +145,9 @@ class BehaviorController:
         # ── State Machine ────────────────────────────────────────────────
 
         if self.state == self.IDLE:
-            # No output — car should already be stopped
-            pass
+            # ENFORCE neutral every cycle — prevents motor drift
+            self.car.set_speed(0.0)
+            self.car.set_steering(0.0)
 
         elif self.state == self.FORWARD:
             # Straight ahead at user-set speed
@@ -185,19 +186,24 @@ class BehaviorController:
             self.car.stop()
             self.state = self.IDLE
             self.last_error = 0.0
-            return
+            print(f"[TURN] ✅ Target reached. Motor=0, Steering=CENTER, State=IDLE")
+            return  # ← MUST return to prevent re-applying turn logic this cycle
 
         # ── Pure rotation: bang-bang steering + minimal motor ─────────────
-        # Positive error → need to rotate right → steering = +1.0
-        # Negative error → need to rotate left  → steering = -1.0
+        # NOTE: Steering sign is INVERTED to match physical servo mounting.
+        # Positive error → servo turns left mechanically → vehicle rotates right
+        # Negative error → servo turns right mechanically → vehicle rotates left
         if error > 0:
-            steering = 1.0    # Full right lock
+            steering = -1.0   # Mechanical left → vehicle rotates right
         else:
-            steering = -1.0   # Full left lock
+            steering = 1.0    # Mechanical right → vehicle rotates left
 
         # Apply: full steering lock + minimal rotational motor power
         self.car.set_steering(steering)
         self.car.set_speed(self.ROTATION_SPEED)
+
+        # Debug: print every cycle so you can watch from console
+        print(f"[TURN] yaw={self.current_yaw:.1f}° target={self.target_yaw:.1f}° error={error:.1f}° steer={steering:.1f}")
 
     # ── Telemetry ────────────────────────────────────────────────────────
 
