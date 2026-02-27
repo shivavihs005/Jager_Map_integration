@@ -609,8 +609,25 @@
             }).catch(console.error);
         }
 
-        bcFwd.addEventListener('click', () => sendState('FORWARD'));
-        bcBwd.addEventListener('click', () => sendState('BACKWARD'));
+        // Forward: hold-to-drive (release = stop)
+        const bcFwdStart = (e) => { e.preventDefault(); sendState('FORWARD'); };
+        const bcFwdEnd = (e) => { e.preventDefault(); sendState('IDLE'); };
+        bcFwd.addEventListener('mousedown', bcFwdStart);
+        bcFwd.addEventListener('mouseup', bcFwdEnd);
+        bcFwd.addEventListener('mouseleave', bcFwdEnd);
+        bcFwd.addEventListener('touchstart', bcFwdStart, { passive: false });
+        bcFwd.addEventListener('touchend', bcFwdEnd);
+
+        // Backward: hold-to-drive (release = stop)
+        const bcBwdStart = (e) => { e.preventDefault(); sendState('BACKWARD'); };
+        const bcBwdEnd = (e) => { e.preventDefault(); sendState('IDLE'); };
+        bcBwd.addEventListener('mousedown', bcBwdStart);
+        bcBwd.addEventListener('mouseup', bcBwdEnd);
+        bcBwd.addEventListener('mouseleave', bcBwdEnd);
+        bcBwd.addEventListener('touchstart', bcBwdStart, { passive: false });
+        bcBwd.addEventListener('touchend', bcBwdEnd);
+
+        // Turns: click-to-fire (auto-stops at ±3° tolerance)
         bcTurnLeft.addEventListener('click', () => sendTurn(-90));
         bcTurnRight.addEventListener('click', () => sendTurn(90));
         bcStop.addEventListener('click', () => sendState('IDLE'));
