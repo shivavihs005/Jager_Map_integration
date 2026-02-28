@@ -1,6 +1,7 @@
 """
 Standalone hardware testing application for Jager.
 Uses the modular robotics stack: IMU (Madgwick), GPS, Fusion, State Machine.
+Advanced control: Servo calibration, Speed ramping, IR Safety, Dual-loop PID.
 
 Run from within the hardware_tests directory:
     cd hardware_tests
@@ -34,17 +35,23 @@ from gps import GPS
 from fusion import SensorFusion
 from state_machine import StateMachine
 from behavior_controller import BehaviorController
+from ir_sensor import IRSensor
 
 # --- Initialize Stack ---
 imu = IMU()
 gps = GPS()
 fusion = SensorFusion()
 sm = StateMachine()
+ir = IRSensor(channel=0)
 
 data_lock = threading.Lock()
 
-# --- Initialize Behavior Controller ---
-controller = BehaviorController(car, fusion, data_lock)
+# --- Initialize Behavior Controller (with IR safety) ---
+controller = BehaviorController(car, fusion, data_lock, ir_sensor=ir)
+
+# --- Center servo at startup ---
+print("[STARTUP] Centering servo...")
+car.set_steering(0.0)
 
 
 def sensor_loop():
@@ -113,6 +120,7 @@ def control_servo():
 def get_sensors():
     imu_data = imu.get_data()
     gps_data = gps.get_data()
+    ir_data = ir.get_data()
 
     with data_lock:
         fusion_data = fusion.get_data()
@@ -126,7 +134,8 @@ def get_sensors():
         "gps": gps_data,
         "fusion": fusion_data,
         "state": state_data,
-        "controller": controller_data
+        "controller": controller_data,
+        "ir": ir_data
     })
 
 @app.route('/api/stop', methods=['POST'])
@@ -161,7 +170,7 @@ def reset_imu():
 
 if __name__ == '__main__':
     print("=" * 50)
-    print(" JAGER HARDWARE TEST — ROBOTICS STACK")
+    print(" JAGER HARDWARE TEST — ADVANCED ROBOTICS STACK")
     print("=" * 50)
 
     # Calibrate IMU at startup
@@ -173,6 +182,9 @@ if __name__ == '__main__':
     threading.Thread(target=fusion_loop, daemon=True).start()
     threading.Thread(target=controller_loop, daemon=True).start()
 
-    print("[READY] All systems online. Behavior controller active.")
+    # Start IR sensor loop (20Hz)
+    ir.start_loop()
+
+    print("[READY] All systems online. Behavior controller + IR safety active.")
     print("Starting Hardware Test Server on port 5001...")
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)

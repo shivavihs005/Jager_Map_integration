@@ -178,6 +178,53 @@
             margin-top: 4px;
         }
 
+        /* IR Obstacle Card */
+        .ir-card {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: border-color 0.3s;
+        }
+
+        .ir-card.obstacle-active {
+            border-color: var(--danger);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+        }
+
+        .ir-status-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .ir-status-badge.clear {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .ir-status-badge.obstacle {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            animation: pulse-danger 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-danger {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
         /* Sliders */
         input[type=range] {
             -webkit-appearance: none;
@@ -267,6 +314,13 @@
             filter: brightness(0.8);
         }
 
+        .drive-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            filter: none;
+        }
+
         /* Stop */
         .stop-btn {
             background: var(--danger);
@@ -316,6 +370,13 @@
             filter: brightness(0.8);
         }
 
+        .behavior-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            filter: none;
+        }
+
         .behavior-btn.btn-behavior-fwd {
             background: var(--success);
         }
@@ -344,7 +405,7 @@
 
         .behavior-telemetry {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 8px;
             margin-top: 12px;
         }
@@ -354,7 +415,7 @@
         }
 
         .behavior-telemetry .metric .value {
-            font-size: 16px;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -366,8 +427,25 @@
         <div class="header">
             <button class="reset-btn" id="reset-btn">Zero IMU</button>
             <h1>JAGER ROBOTICS</h1>
-            <p>Madgwick IMU • GPS • Sensor Fusion</p>
+            <p>Madgwick IMU • GPS • Sensor Fusion • IR Safety</p>
             <div class="state-badge" id="state-badge">IDLE</div>
+        </div>
+
+        <!-- IR Obstacle Detection -->
+        <div class="card ir-card" id="ir-card">
+            <h3>IR Obstacle Detection</h3>
+            <div class="sensor-grid two-col">
+                <div class="metric">
+                    <div class="label">Distance</div>
+                    <div class="value accent" id="ir-distance">--<span class="unit">cm</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Status</div>
+                    <div id="ir-status-container" style="margin-top:4px">
+                        <span class="ir-status-badge clear" id="ir-status">CLEAR</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Fusion Output (Primary) -->
@@ -503,7 +581,7 @@
             <div class="behavior-telemetry">
                 <div class="metric">
                     <div class="label">State</div>
-                    <div class="value accent" id="ctrl-state" style="font-size:13px">IDLE</div>
+                    <div class="value accent" id="ctrl-state" style="font-size:12px">IDLE</div>
                 </div>
                 <div class="metric">
                     <div class="label">Target</div>
@@ -512,6 +590,10 @@
                 <div class="metric">
                     <div class="label">Error</div>
                     <div class="value" id="ctrl-error">0.00<span class="unit">°</span></div>
+                </div>
+                <div class="metric">
+                    <div class="label">Motor</div>
+                    <div class="value green" id="ctrl-motor">0.0<span class="unit">%</span></div>
                 </div>
             </div>
         </div>
@@ -538,8 +620,17 @@
         const bcHeadingHold = document.getElementById('bc-heading-hold');
         const bcStop = document.getElementById('bc-stop');
 
+        // IR elements
+        const irCard = document.getElementById('ir-card');
+        const irDistance = document.getElementById('ir-distance');
+        const irStatus = document.getElementById('ir-status');
+
+        // Forward-blocking buttons (disabled on obstacle)
+        const forwardButtons = [btnFwd, bcFwd, bcBwd, bcTurnLeft, bcTurnRight, bcHeadingHold];
+
         let isDriving = false;
         let driveDirection = 0;
+        let isObstacle = false;
 
         // --- Servo ---
         let servoTimeout = null;
@@ -557,6 +648,7 @@
 
         // --- Motor ---
         function sendMotor(mult) {
+            if (isObstacle && mult > 0) return; // Block forward on obstacle
             const speed = parseFloat(speedSlider.value) * mult;
             fetch('/api/motor', {
                 method: 'POST',
@@ -626,7 +718,7 @@
         bcBwd.addEventListener('touchstart', bcBwdStart, { passive: false });
         bcBwd.addEventListener('touchend', bcBwdEnd);
 
-        // Turns: click-to-fire (auto-stops at ±3° tolerance)
+        // Turns: click-to-fire (auto-stops at ±2° tolerance)
         bcTurnLeft.addEventListener('click', () => sendState('TURN_LEFT_90'));
         bcTurnRight.addEventListener('click', () => sendState('TURN_RIGHT_90'));
         bcHeadingHold.addEventListener('click', () => sendState('HEADING_HOLD'));
@@ -636,6 +728,29 @@
         setInterval(() => {
             fetch('/api/sensors').then(r => r.json()).then(d => {
                 if (d.status !== 'success') return;
+
+                // IR Obstacle
+                if (d.ir) {
+                    const dist = d.ir.distance_cm;
+                    isObstacle = d.ir.is_obstacle;
+
+                    irDistance.innerHTML = dist.toFixed(1) + '<span class="unit">cm</span>';
+
+                    if (isObstacle) {
+                        irStatus.textContent = 'OBSTACLE';
+                        irStatus.className = 'ir-status-badge obstacle';
+                        irCard.classList.add('obstacle-active');
+                        irDistance.style.color = 'var(--danger)';
+                        // Disable forward-related buttons
+                        forwardButtons.forEach(btn => btn.disabled = true);
+                    } else {
+                        irStatus.textContent = 'CLEAR';
+                        irStatus.className = 'ir-status-badge clear';
+                        irCard.classList.remove('obstacle-active');
+                        irDistance.style.color = 'var(--accent)';
+                        forwardButtons.forEach(btn => btn.disabled = false);
+                    }
+                }
 
                 // Fusion
                 document.getElementById('fused-yaw').innerHTML = d.fusion.fused_yaw.toFixed(2) + '<span class="unit">°</span>';
@@ -686,9 +801,13 @@
                 if (d.controller) {
                     document.getElementById('ctrl-state').textContent = d.controller.controller_state;
                     document.getElementById('ctrl-target').innerHTML = d.controller.target_yaw.toFixed(2) + '<span class="unit">°</span>';
+
                     const errEl = document.getElementById('ctrl-error');
                     errEl.innerHTML = d.controller.error.toFixed(2) + '<span class="unit">°</span>';
-                    errEl.style.color = Math.abs(d.controller.error) <= 3 ? 'var(--success)' : 'var(--danger)';
+                    errEl.style.color = Math.abs(d.controller.error) <= 2 ? 'var(--success)' : 'var(--danger)';
+
+                    const motorEl = document.getElementById('ctrl-motor');
+                    motorEl.innerHTML = d.controller.motor_output.toFixed(1) + '<span class="unit">%</span>';
                 }
             }).catch(() => { });
         }, 150); // ~7Hz UI refresh
