@@ -1,83 +1,63 @@
 """
 behavior_controller.py — Robotics Behavior Controller
-Pure rotation turn controller for the Jager autonomous vehicle.
+Professional behavior controller for the Jager autonomous vehicle.
 
-Control Philosophy:
-    - TURN_RELATIVE is a PURE ROTATION maneuver, not drive-and-steer.
-    - Motor provides minimal rotational torque only (not forward speed).
-    - Steering goes full lock in the turn direction.
-    - On completion: motor = 0, steering = 0 (center), state = IDLE.
+Control Context:
+    - IMU provides yaw (-180 to +180 degrees)
+    - SensorFusion provides fused_yaw and speed
+    - car.set_speed() controls motor
+    - car.set_steering() controls steering (-1 to +1, 0.0 is center)
 
-States:
-    IDLE          — stopped, no output
-    FORWARD       — straight ahead at user speed
-    BACKWARD      — reverse at user speed
-    TURN_RELATIVE — closed-loop pure rotation to target yaw
-
-Author: Jager Robotics Stack
+Features:
+    - TURN_LEFT_90 and TURN_RIGHT_90 rotate the vehicle approx 90 degrees relative to current yaw.
+    - HEADING_HOLD captures current yaw and maintains it against drift.
+    - Rotation slows down organically as target is approached.
+    - Steering uses full PID control.
+    - Motor stops and servo centers strictly upon reaching tolerance.
+    - IDLE strictly enforces zero motor and centered steering.
 """
-
+from pid import PIDController
 
 class BehaviorController:
-    """
-    High-level behavior controller for the autonomous vehicle.
-
-    Uses fused yaw from SensorFusion to execute precise relative-angle
-    turns as pure rotation maneuvers. The vehicle rotates in place
-    (or near-zero drift) using bang-bang steering with minimal motor power.
-    """
-
     # ── State Constants ──────────────────────────────────────────────────
     IDLE = "IDLE"
     FORWARD = "FORWARD"
     BACKWARD = "BACKWARD"
-    TURN_RELATIVE = "TURN_RELATIVE"
+    TURN_LEFT_90 = "TURN_LEFT_90"
+    TURN_RIGHT_90 = "TURN_RIGHT_90"
+    HEADING_HOLD = "HEADING_HOLD"
 
-    # ── Tuning Constants ─────────────────────────────────────────────────
-
-    # Angle tolerance in degrees. Turn completes when |error| <= this.
-    TOLERANCE = 3.0
-
-    # Motor power (0–100) used ONLY for rotation. This is NOT forward speed.
-    # Just enough torque to rotate the vehicle. Keep low to prevent drift.
-    ROTATION_SPEED = 20
+    # ── Control Parameters ───────────────────────────────────────────────
+    TOLERANCE = 3.0            # Degrees error to consider turn complete
+    SPEED_TOLERANCE = 0.3        # m/s error to consider speed target reached
+    ROTATION_SPEED = 20        # Base motor power percentage for rotation
+    INVERT_STEERING = True     # Set True if mechanical steering is inverted
 
     def __init__(self, car, fusion, data_lock):
         """
         Initialize the behavior controller.
-
-        Args:
-            car:       Car control object with set_speed(), set_steering(), stop()
-            fusion:    SensorFusion instance providing fused_yaw
-            data_lock: threading.Lock for thread-safe access to fusion data
         """
         self.car = car
         self.fusion = fusion
         self.data_lock = data_lock
 
-        # ── Internal State ───────────────────────────────────────────────
+        # Internal state
         self.state = self.IDLE
-        self.user_speed = 50        # Speed for FORWARD/BACKWARD (0–100)
-        self.target_yaw = 0.0       # Target yaw for TURN_RELATIVE
-        self.current_yaw = 0.0      # Latest fused yaw reading
-        self.last_error = 0.0       # Latest yaw error (for telemetry)
+        self.user_speed = 50        # User slider speed for FORWARD/BACKWARD
+        self.target_yaw = 0.0       # Target yaw for turns / heading hold
+        self.current_yaw = 0.0
+        self.last_error = 0.0
+        self.target_speed = 0.0      # Target speed for forward/backward
 
-    # ── Math Utilities ───────────────────────────────────────────────────
+        # PIDs
+        self.yaw_pid = PIDController(Kp=0.02, Ki=0.0005, Kd=0.01, min_out=-1.0, max_out=1.0)
+        self.speed_pid = PIDController(Kp=2.0, Ki=0.5, Kd=0.1, min_out=-100.0, max_out=100.0)
 
     @staticmethod
     def normalize_angle(angle):
         """
         Normalize an angle to the range [-180, +180].
-
-        Critical for handling the -180/+180 wraparound boundary.
-        Without this, a target of 260° would never be reached
-        because the IMU reports in [-180, +180].
-
-        Args:
-            angle: Raw angle in degrees (any value)
-
-        Returns:
-            Normalized angle in [-180, +180]
+        Essential for proper wraparound math.
         """
         while angle > 180.0:
             angle -= 360.0
@@ -85,135 +65,152 @@ class BehaviorController:
             angle += 360.0
         return angle
 
-    # ── State Control ────────────────────────────────────────────────────
+    @staticmethod
+    def clamp(value, min_val, max_val):
+        return max(min_val, min(max_val, value))
 
     def set_state(self, state_name):
         """
-        Set the controller state.
-
-        Valid states: IDLE, FORWARD, BACKWARD.
-        For TURN_RELATIVE, use set_relative_turn() instead.
-
-        Args:
-            state_name: One of the state constants (string)
+        Set the behavior controller state.
+        Valid states: IDLE, FORWARD, BACKWARD, TURN_LEFT_90, TURN_RIGHT_90, HEADING_HOLD
         """
-        valid = {self.IDLE, self.FORWARD, self.BACKWARD}
-        if state_name in valid:
-            self.state = state_name
-            self.last_error = 0.0
+        valid_states = {
+            self.IDLE, self.FORWARD, self.BACKWARD,
+            self.TURN_LEFT_90, self.TURN_RIGHT_90, self.HEADING_HOLD
+        }
+        
+        if state_name not in valid_states:
+            return
 
-            # When entering IDLE: full stop + center steering
-            if state_name == self.IDLE:
-                self.car.set_speed(0.0)
-                self.car.set_steering(0.0)
-                self.car.stop()
+        self.state = state_name
+        self.last_error = 0.0
+        
+        # Reset PIDs on state change
+        self.yaw_pid.reset()
+        self.speed_pid.reset()
 
-    def set_relative_turn(self, delta_angle):
-        """
-        Begin a pure rotation turn by delta_angle degrees.
-
-        Computes target yaw from current fused heading + delta.
-        Switches to TURN_RELATIVE state. The update() loop handles
-        the closed-loop rotation until the target is reached.
-
-        Args:
-            delta_angle: Degrees to turn (+ = right/clockwise,
-                                          - = left/counter-clockwise)
-        """
-        # Read current heading (thread-safe)
         with self.data_lock:
             self.current_yaw = self.fusion.get_data()["fused_yaw"]
 
-        # Compute normalized target
-        self.target_yaw = self.normalize_angle(self.current_yaw + delta_angle)
-        self.last_error = 0.0
-        self.state = self.TURN_RELATIVE
+        if self.state == self.IDLE:
+            # Enforce zero output
+            self.car.set_speed(0.0)
+            self.car.set_steering(0.0)
+            self.car.stop()
+            
+        elif self.state == self.HEADING_HOLD:
+            # Capture current yaw as the target to maintain
+            self.target_yaw = self.current_yaw
 
-    # ── Main Update Loop ─────────────────────────────────────────────────
+        elif self.state == self.TURN_LEFT_90:
+            # Target is 90 degrees left (negative delta)
+            self.target_yaw = self.normalize_angle(self.current_yaw - 90.0)
+            
+        elif self.state == self.TURN_RIGHT_90:
+            # Target is 90 degrees right (positive delta)
+            self.target_yaw = self.normalize_angle(self.current_yaw + 90.0)
+
+        elif self.state == self.FORWARD:
+            # Set target speed for forward motion
+            self.target_speed = self.user_speed
+
+        elif self.state == self.BACKWARD:
+            # Set target speed for backward motion (negative)
+            self.target_speed = -self.user_speed
 
     def update(self):
         """
-        Execute one control cycle. Must be called at ~20Hz.
-
-        Reads the latest fused yaw (thread-safe), then executes
-        the behavior for the current state.
+        Update loop logic, intended to be called at ~20Hz.
         """
-        # ── Read fused yaw under lock ────────────────────────────────────
         with self.data_lock:
             self.current_yaw = self.fusion.get_data()["fused_yaw"]
 
-        # ── State Machine ────────────────────────────────────────────────
-
         if self.state == self.IDLE:
-            # ENFORCE neutral every cycle — prevents motor drift
+            # Enforce neutral strictly every cycle to prevent drift
             self.car.set_speed(0.0)
             self.car.set_steering(0.0)
 
         elif self.state == self.FORWARD:
-            # Straight ahead at user-set speed
-            self.car.set_speed(self.user_speed)
+            # Compute speed error and apply PID
+            error = self.target_speed - self.fusion.get_data()["fused_speed"]
+            motor = self.speed_pid.compute(error, dt=0.05)
+            # Apply deadband
+            if abs(error) <= self.SPEED_TOLERANCE:
+                motor = 0.0
+            self.car.set_speed(motor)
             self.car.set_steering(0.0)
-
+            return
         elif self.state == self.BACKWARD:
-            # Reverse at user-set speed
-            self.car.set_speed(-self.user_speed)
+            # Compute speed error and apply PID for backward motion
+            error = self.target_speed - self.fusion.get_data()["fused_speed"]
+            motor = self.speed_pid.compute(error, dt=0.05)
+            if abs(error) <= self.SPEED_TOLERANCE:
+                motor = 0.0
+            self.car.set_speed(motor)
             self.car.set_steering(0.0)
+            return
+        elif self.state == self.HEADING_HOLD:
+            self._execute_heading_hold()
 
-        elif self.state == self.TURN_RELATIVE:
-            self._execute_pure_rotation()
+        elif self.state in (self.TURN_LEFT_90, self.TURN_RIGHT_90):
+            self._execute_turn()
 
-    def _execute_pure_rotation(self):
+    def _execute_heading_hold(self):
         """
-        Pure rotation maneuver for TURN_RELATIVE state.
-
-        This is NOT drive-and-steer. The vehicle rotates in place:
-            1. Steering goes full lock in the error direction.
-            2. Motor provides minimal rotational torque only.
-            3. When target reached: motor = 0, steering = center, state = IDLE.
-
-        The bang-bang steering (full left or full right) ensures the
-        fastest rotation. The low ROTATION_SPEED prevents forward drift.
+        Continuously adjusts steering to maintain target_yaw.
+        Drives forward at user_speed.
         """
-        # ── Compute normalized yaw error ─────────────────────────────────
         error = self.normalize_angle(self.target_yaw - self.current_yaw)
         self.last_error = error
 
-        # ── Target reached → full stop ───────────────────────────────────
+        steering = self.yaw_pid.compute(error, dt=0.05)
+        
+        if self.INVERT_STEERING:
+            steering = -steering
+
+        self.car.set_steering(steering)
+        self.car.set_speed(self.user_speed)
+
+    def _execute_turn(self):
+        """
+        PID rotation maneuver.
+        """
+        error = self.normalize_angle(self.target_yaw - self.current_yaw)
+        self.last_error = error
+
         if abs(error) <= self.TOLERANCE:
-            # CRITICAL: Stop motor AND center steering
+            # Target reached!
             self.car.set_speed(0.0)
             self.car.set_steering(0.0)
             self.car.stop()
             self.state = self.IDLE
             self.last_error = 0.0
-            print(f"[TURN] ✅ Target reached. Motor=0, Steering=CENTER, State=IDLE")
-            return  # ← MUST return to prevent re-applying turn logic this cycle
+            self.yaw_pid.reset()
+            self.speed_pid.reset()
+            print("[TURN] ✅ Target reached. Motor=0, Steering=CENTER, State=IDLE")
+            return
 
-        # ── Pure rotation: bang-bang steering + minimal motor ─────────────
-        # NOTE: Steering sign is INVERTED to match physical servo mounting.
-        # Positive error → servo turns left mechanically → vehicle rotates right
-        # Negative error → servo turns right mechanically → vehicle rotates left
-        if error > 0:
-            steering = -1.0   # Mechanical left → vehicle rotates right
+        # PID steering logic
+        steering = self.yaw_pid.compute(error, dt=0.05)
+        
+        # Invert steering if mechanically mounted opposite
+        if self.INVERT_STEERING:
+            steering = -steering
+
+        # Controlled rotation speed (slow down as we get closer)
+        if abs(error) < 20.0:
+            speed = self.ROTATION_SPEED * (abs(error) / 20.0)
         else:
-            steering = 1.0    # Mechanical right → vehicle rotates left
+            speed = self.ROTATION_SPEED
 
-        # Apply: full steering lock + minimal rotational motor power
+        # Set final outputs
         self.car.set_steering(steering)
-        self.car.set_speed(self.ROTATION_SPEED)
+        self.car.set_speed(speed)
 
-        # Debug: print every cycle so you can watch from console
-        print(f"[TURN] yaw={self.current_yaw:.1f}° target={self.target_yaw:.1f}° error={error:.1f}° steer={steering:.1f}")
-
-    # ── Telemetry ────────────────────────────────────────────────────────
+        # Debug print
+        print(f"[TURN] yaw={self.current_yaw:.1f}° target={self.target_yaw:.1f}° error={error:.1f}° steer={steering:.2f} speed={speed:.1f}")
 
     def get_data(self):
-        """
-        Return current controller state for the Flask API / UI.
-
-        Returns:
-            dict with state, target_yaw, current_yaw, error
-        """
         return {
             "controller_state": self.state,
             "target_yaw": round(self.target_yaw, 2),

@@ -329,6 +329,11 @@
         }
 
         .behavior-btn.btn-turn-right {
+            background: var(--purple);
+        }
+
+        .behavior-btn.btn-heading-hold {
+            grid-column: 1 / -1;
             background: var(--accent);
         }
 
@@ -492,6 +497,7 @@
                 <button class="behavior-btn btn-behavior-bwd" id="bc-bwd">▼ Backward</button>
                 <button class="behavior-btn btn-turn-left" id="bc-turn-left">↺ Turn −90°</button>
                 <button class="behavior-btn btn-turn-right" id="bc-turn-right">↻ Turn +90°</button>
+                <button class="behavior-btn btn-heading-hold" id="bc-heading-hold">⤖ Heading Hold</button>
                 <button class="behavior-btn btn-behavior-stop" id="bc-stop">■ Stop</button>
             </div>
             <div class="behavior-telemetry">
@@ -529,6 +535,7 @@
         const bcBwd = document.getElementById('bc-bwd');
         const bcTurnLeft = document.getElementById('bc-turn-left');
         const bcTurnRight = document.getElementById('bc-turn-right');
+        const bcHeadingHold = document.getElementById('bc-heading-hold');
         const bcStop = document.getElementById('bc-stop');
 
         let isDriving = false;
@@ -601,14 +608,6 @@
             }).catch(console.error);
         }
 
-        function sendTurn(angle) {
-            fetch('/api/turn_relative', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ angle: angle })
-            }).catch(console.error);
-        }
-
         // Forward: hold-to-drive (release = stop)
         const bcFwdStart = (e) => { e.preventDefault(); sendState('FORWARD'); };
         const bcFwdEnd = (e) => { e.preventDefault(); sendState('IDLE'); };
@@ -628,8 +627,9 @@
         bcBwd.addEventListener('touchend', bcBwdEnd);
 
         // Turns: click-to-fire (auto-stops at ±3° tolerance)
-        bcTurnLeft.addEventListener('click', () => sendTurn(-90));
-        bcTurnRight.addEventListener('click', () => sendTurn(90));
+        bcTurnLeft.addEventListener('click', () => sendState('TURN_LEFT_90'));
+        bcTurnRight.addEventListener('click', () => sendState('TURN_RIGHT_90'));
+        bcHeadingHold.addEventListener('click', () => sendState('HEADING_HOLD'));
         bcStop.addEventListener('click', () => sendState('IDLE'));
 
         // --- Sensor Polling ---
@@ -676,7 +676,8 @@
                 const stateColors = {
                     IDLE: 'var(--muted)', MOVING: 'var(--success)', STOPPED: 'var(--warning)',
                     NAVIGATING: 'var(--accent)', FORWARD: 'var(--success)', BACKWARD: 'var(--warning)',
-                    TURN_RELATIVE: 'var(--purple)'
+                    TURN_LEFT_90: 'var(--purple)', TURN_RIGHT_90: 'var(--purple)',
+                    HEADING_HOLD: 'var(--accent)'
                 };
                 badge.style.color = stateColors[ctrlState] || 'var(--muted)';
                 badge.style.borderColor = stateColors[ctrlState] || 'var(--muted)';

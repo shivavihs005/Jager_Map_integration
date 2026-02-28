@@ -151,22 +151,6 @@ def set_behavior_state():
     return jsonify({"status": "success", "state": state})
 
 
-@app.route('/api/turn_relative', methods=['POST'])
-def turn_relative():
-    """Start a relative yaw turn by the given angle in degrees."""
-    data = request.json
-    angle = float(data.get('angle', 0))
-
-    if angle == 0:
-        return jsonify({"status": "error", "message": "Angle cannot be 0"}), 400
-
-    controller.set_relative_turn(angle)
-    return jsonify({
-        "status": "success",
-        "angle": angle,
-        "target_yaw": controller.target_yaw
-    })
-
 @app.route('/api/reset_imu', methods=['POST'])
 def reset_imu():
     imu.q = [1.0, 0.0, 0.0, 0.0]

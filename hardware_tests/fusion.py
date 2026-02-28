@@ -9,8 +9,17 @@ class SensorFusion:
         self.yaw = 0.0
         self.speed = 0.0
 
-        # GPS heading blend weight (higher = more GPS trust)
-        self.GPS_YAW_WEIGHT = 0.02
+        # GPS heading blend weight (alpha)
+        self.GPS_YAW_WEIGHT = 0.08
+        
+    @staticmethod
+    def normalize_angle(angle):
+        """Normalize an angle to the range [-180, +180]."""
+        while angle > 180.0:
+            angle -= 360.0
+        while angle < -180.0:
+            angle += 360.0
+        return angle
 
     def update(self, imu_yaw, gps_heading, gps_speed, imu_accel_x=0.0):
         """
@@ -18,10 +27,11 @@ class SensorFusion:
         GPS heading only trusted when vehicle is moving (speed > 0.8 m/s).
         """
         if gps_speed > 0.8:
-            # Complementary filter: fast changes from IMU, drift correction from GPS
-            self.yaw = (1.0 - self.GPS_YAW_WEIGHT) * imu_yaw + self.GPS_YAW_WEIGHT * gps_heading
+            # Gradually correct IMU yaw toward GPS heading
+            error = self.normalize_angle(gps_heading - imu_yaw)
+            self.yaw = self.normalize_angle(imu_yaw + self.GPS_YAW_WEIGHT * error)
         else:
-            # Stationary or slow: trust IMU entirely
+            # Stationary or slow: trust IMU entirely, freeze correction
             self.yaw = imu_yaw
 
         # Speed: prefer GPS when available, otherwise use 0
