@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jager Dashboard</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #38bdf8;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 15px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        h3 {
+            margin: 0 0 12px 0;
+            color: var(--accent);
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .metric {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric .lbl {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .metric .val {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: monospace;
+            margin-top: 4px;
+        }
+
+        /* Sliders */
+        input[type=range] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        /* Buttons */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            padding: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .btn-fwd {
+            background: var(--success);
+            grid-column: 1 / -1;
+        }
+
+        .btn-bwd {
+            background: var(--warning);
+            grid-column: 1 / -1;
+        }
+
+        .btn-stop {
+            background: var(--danger);
+            grid-column: 1 / -1;
+            padding: 20px;
+            font-size: 18px;
+        }
+
+        .btn-turn {
+            background: #6366f1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <h2>Jager Clean Architecture</h2>
+
+        <div class="card">
+            <h3>Manual Control</h3>
+            <label>Speed: <span id="speed-val">50</span>%</label>
+            <input type="range" id="speed-slider" min="0" max="100" value="50">
+
+            <div class="btn-grid" style="margin-top: 10px;">
+                <button class="btn-fwd" onclick="sendAction('forward')">FORWARD</button>
+                <button class="btn-turn" onclick="sendAction('turn_left')">TURN LEFT</button>
+                <button class="btn-turn" onclick="sendAction('turn_right')">TURN RIGHT</button>
+                <button class="btn-bwd" onclick="sendAction('backward')">BACKWARD</button>
+                <button class="btn-bwd" onclick="sendAction('reverse_turn')">REVERSE TURN</button>
+                <button class="btn-stop" onclick="sendAction('stop')">STOP</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Orientation Fusion</h3>
+            <div class="grid-3">
+                <div class="metric">
+                    <div class="lbl">Yaw</div>
+                    <div class="val" id="fusion-yaw">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Pitch</div>
+                    <div class="val" id="fusion-pitch">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Roll</div>
+                    <div class="val" id="fusion-roll">0.0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>QMC5883 Magnetometer</h3>
+            <div class="metric" style="margin-bottom:8px;">
+                <div class="lbl">Heading</div>
+                <div class="val" id="qmc-heading" style="color:var(--warning)">0.0</div>
+            </div>
+            <div class="grid-3">
+                <div class="metric">
+                    <div class="lbl">Mag X</div>
+                    <div class="val" id="mag-x">0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Mag Y</div>
+                    <div class="val" id="mag-y">0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Mag Z</div>
+                    <div class="val" id="mag-z">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>MPU6500 IMU</h3>
+            <div class="grid-3">
+                <div class="metric">
+                    <div class="lbl">Acc X</div>
+                    <div class="val" id="acc-x">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Acc Y</div>
+                    <div class="val" id="acc-y">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Acc Z</div>
+                    <div class="val" id="acc-z">0.0</div>
+                </div>
+            </div>
+            <div class="grid-3" style="margin-top:8px;">
+                <div class="metric">
+                    <div class="lbl">Gyro X</div>
+                    <div class="val" id="gyro-x">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Gyro Y</div>
+                    <div class="val" id="gyro-y">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Gyro Z</div>
+                    <div class="val" id="gyro-z">0.0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>NEO-6M GPS</h3>
+            <div class="grid-3">
+                <div class="metric">
+                    <div class="lbl">Lat</div>
+                    <div class="val" id="gps-lat">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Lon</div>
+                    <div class="val" id="gps-lon">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Status</div>
+                    <div class="val" id="gps-status" style="font-size:14px;">NO FIX</div>
+                </div>
+            </div>
+            <div class="grid-3" style="margin-top:8px;">
+                <div class="metric">
+                    <div class="lbl">Sats</div>
+                    <div class="val" id="gps-sats">0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Speed</div>
+                    <div class="val" id="gps-speed">0.0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Actuators</h3>
+            <div class="grid-3">
+                <div class="metric">
+                    <div class="lbl">Motor Spd</div>
+                    <div class="val" id="act-motor">0.0</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Servo Ang</div>
+                    <div class="val" id="act-servo">90.0</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const speedSlider = document.getElementById('speed-slider');
+        const speedVal = document.getElementById('speed-val');
+
+        speedSlider.addEventListener('input', (e) => {
+            speedVal.textContent = e.target.value;
+        });
+
+        function sendAction(action) {
+            const speed = parseFloat(speedSlider.value);
+            fetch(`/api/${action}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: speed })
+            }).catch(console.error);
+        }
+
+        // Poll sensors at 1Hz
+        setInterval(() => {
+            fetch('/api/sensors').then(r => r.json()).then(d => {
+                if (d.status !== 'success') return;
+
+                // Fusion
+                document.getElementById('fusion-yaw').textContent = d.fusion?.yaw?.toFixed(1) || '0.0';
+                document.getElementById('fusion-pitch').textContent = d.fusion?.pitch?.toFixed(1) || '0.0';
+                document.getElementById('fusion-roll').textContent = d.fusion?.roll?.toFixed(1) || '0.0';
+
+                // QMC
+                const qmc = d.sensors?.qmc5883;
+                if (qmc) {
+                    document.getElementById('qmc-heading').textContent = qmc.heading?.toFixed(1) || '0.0';
+                    document.getElementById('mag-x').textContent = qmc.mag_x?.toFixed(0) || '0';
+                    document.getElementById('mag-y').textContent = qmc.mag_y?.toFixed(0) || '0';
+                    document.getElementById('mag-z').textContent = qmc.mag_z?.toFixed(0) || '0';
+                }
+
+                // MPU
+                const mpu = d.sensors?.mpu6500;
+                if (mpu) {
+                    document.getElementById('acc-x').textContent = mpu.acc_x?.toFixed(2) || '0.0';
+                    document.getElementById('acc-y').textContent = mpu.acc_y?.toFixed(2) || '0.0';
+                    document.getElementById('acc-z').textContent = mpu.acc_z?.toFixed(2) || '0.0';
+                    document.getElementById('gyro-x').textContent = mpu.gyro_x?.toFixed(1) || '0.0';
+                    document.getElementById('gyro-y').textContent = mpu.gyro_y?.toFixed(1) || '0.0';
+                    document.getElementById('gyro-z').textContent = mpu.gyro_z?.toFixed(1) || '0.0';
+                }
+
+                // GPS
+                const gps = d.sensors?.neo6m;
+                if (gps) {
+                    document.getElementById('gps-lat').textContent = gps.latitude?.toFixed(5) || '0.0';
+                    document.getElementById('gps-lon').textContent = gps.longitude?.toFixed(5) || '0.0';
+                    document.getElementById('gps-status').textContent = gps.fix_status || 'NO FIX';
+                    document.getElementById('gps-sats').textContent = gps.satellite_count || '0';
+                    document.getElementById('gps-speed').textContent = gps.speed?.toFixed(1) || '0.0';
+                }
+
+                // Actuators
+                document.getElementById('act-motor').textContent = d.actuators?.motor_speed?.toFixed(1) || '0.0';
+                document.getElementById('act-servo').textContent = d.actuators?.servo_angle?.toFixed(1) || '90.0';
+
+            }).catch(console.error);
+        }, 1000);
+    </script>
+</body>
+
+</html>
