@@ -140,7 +140,7 @@ sudo nano /usr/local/bin/wifi-autoconnect.sh
 # Automatically connects to mobile hotspot on every boot
 # Works after power loss and improper shutdowns
 
-HOTSPOT_SSID="Shiva"
+HOTSPOT_SSID="Nitish"
 INTERFACE="wlan0"
 MAX_ATTEMPTS=20
 WAIT_TIME=15
@@ -225,8 +225,8 @@ ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
 
 network={
-    ssid="Shiva"
-    psk="your_hotspot_password"
+    ssid="Nitish"
+    psk="12345678"
     key_mgmt=WPA-PSK
     priority=100
     scan_ssid=1

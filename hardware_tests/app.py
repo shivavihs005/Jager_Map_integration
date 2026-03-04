@@ -42,7 +42,7 @@ imu = IMU()
 gps = GPS()
 fusion = SensorFusion()
 sm = StateMachine()
-ir = IRSensor(channel=0)
+ir = IRSensor()
 
 data_lock = threading.Lock()
 

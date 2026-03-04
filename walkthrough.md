@@ -52,6 +52,7 @@ git clone https://github.com/shivavihs005/Jager_Map_integration.git
 cd Jager_Map_integration
 
 # To pull updates later
+git stash
 git pull origin main 
 
 # Check status with the important
@@ -80,7 +81,7 @@ Connect the following components to your Raspberry Pi 4 GPIO:
 
 
 ### B. DC Motor Driver (L298N or similar)
-- **R_EN** (Right Enable) -> GPIO 23 (black)
+- **R_EN** (Right Enable) -> GPIO 23 (w)
 - **L_EN** (Left Enable)  -> GPIO 24 (Blue)
 - **RPWM** (Forward)      -> GPIO 13 (vilote)
 - **LPWM** (Backward)     -> GPIO 12 (orange)
@@ -124,7 +125,12 @@ This script will:
     cd /home/pi/my-projects/Jager_Map_integration/hardware_tests
     python app.py   
 
-    
+    cd /home/pi/my-projects/Jager_Map_integration
+    source env/bin/activate
+    git stash
+    git pull origin main 
+    cd /home/pi/my-projects/Jager_Map_integration/hardware_tests
+    python app.py 
     ```
 <<<<<<< HEAD
 <<<<<<< HEAD
