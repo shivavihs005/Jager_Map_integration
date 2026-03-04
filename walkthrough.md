@@ -79,7 +79,7 @@ Connect the following components to your Raspberry Pi 4 GPIO:
 - **RPWM** (Forward)      -> GPIO 13 (gray)
 - **LPWM** (Backward)     -> GPIO 12 (vilote)
 - **GND** -> Ground
-- **VCC** -> External Motor Power (e.g., 12V LiPo)
+- **VCC** -> External Motor Power (e.g., 5V)
 
 ### C. Steering Servo
 - **Signal** -> GPIO 18 (PWM)

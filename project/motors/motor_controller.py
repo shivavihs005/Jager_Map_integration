@@ -1,17 +1,7 @@
 """
-motor_controller.py — Controls the two DC motors
-Uses the same PCA9685/GPIO fallback logic as the previous implementation.
+motor_controller.py — Controls the DC drive motor using RPi.GPIO and BTS7960 High-Power Motor Driver
 """
 import time
-try:
-    from adafruit_pca9685 import PCA9685
-    from board import SCL, SDA
-    import busio
-    PCA_AVAILABLE = True
-except ImportError:
-    print("[Motors] PCA9685 library not found. Running in mock mode.")
-    PCA_AVAILABLE = False
-
 try:
     import RPi.GPIO as GPIO
     GPIO_AVAILABLE = True
@@ -20,78 +10,72 @@ except ImportError:
     GPIO_AVAILABLE = False
 
 class MotorController:
-    # PCA9685 Channels
-    ENA = 0
-    ENB = 1
-    # GPIO Pins
-    # ENA and ENB are not used in this specific config since PWM is on IN pins directly or PCA
-    IN1, IN2 = 13, 12 # RPWM (forward), LPWM (backward) right (?) 
-    IN3, IN4 = 23, 24 # R_EN, L_EN -> Assuming IN3/4 act as enables for now based on standard naming
+    # BTS7960 / Motor Driver Pins
+    R_EN = 23   # Right Enable (usually tied high, or GPIO controlled)
+    L_EN = 24   # Left Enable
+    RPWM = 13   # Forward speed control
+    LPWM = 12   # Backward speed control
 
     def __init__(self):
-        self._mock = not (PCA_AVAILABLE and GPIO_AVAILABLE)
+        self._mock = not GPIO_AVAILABLE
         
         if not self._mock:
-            # Initialize PCA9685
-            i2c = busio.I2C(SCL, SDA)
-            self.pca = PCA9685(i2c)
-            self.pca.frequency = 50
-
-            # Initialize GPIO
             GPIO.setmode(GPIO.BCM)
             GPIO.setwarnings(False)
-            GPIO.setup([self.IN1, self.IN2, self.IN3, self.IN4], GPIO.OUT)
-            self.stop()
-            print("[Motors] Initialized successfully.")
-
-    def _set_pwm(self, channel, percent):
-        if self._mock: return
-        percent = max(0.0, min(100.0, percent))
-        duty_cycle = int((percent / 100.0) * 65535)
-        self.pca.channels[channel].duty_cycle = duty_cycle
-
-    def _set_pins(self, p1, p2, p3, p4):
-        if self._mock: return
-        GPIO.output(self.IN1, p1)
-        GPIO.output(self.IN2, p2)
-        GPIO.output(self.IN3, p3)
-        GPIO.output(self.IN4, p4)
+            
+            # Setup pins as outputs
+            GPIO.setup([self.R_EN, self.L_EN, self.RPWM, self.LPWM], GPIO.OUT)
+            
+            # Enable the BTS7960 bridges (setting both enables High turns the driver ON)
+            GPIO.output(self.R_EN, GPIO.HIGH)
+            GPIO.output(self.L_EN, GPIO.HIGH)
+            
+            # Initialize hardware PWM on the direction pins at 1000Hz
+            self.pwm_fwd = GPIO.PWM(self.RPWM, 1000)
+            self.pwm_bwd = GPIO.PWM(self.LPWM, 1000)
+            
+            self.pwm_fwd.start(0)
+            self.pwm_bwd.start(0)
+            print("[Motors] BTS7960 Initialized successfully on GPIO 13, 12, 23, 24.")
 
     def move_forward(self, speed):
-        """Both motors forward"""
-        self._set_pins(GPIO.HIGH, GPIO.LOW, GPIO.HIGH, GPIO.LOW)
-        self._set_pwm(self.ENA, speed)
-        self._set_pwm(self.ENB, speed)
+        """Drive forward by pulsing RPWM and pulling LPWM to 0"""
+        if self._mock: return
+        speed = max(0.0, min(100.0, float(speed)))
+        self.pwm_bwd.ChangeDutyCycle(0)
+        self.pwm_fwd.ChangeDutyCycle(speed)
 
     def move_backward(self, speed):
-        """Both motors reverse"""
-        self._set_pins(GPIO.LOW, GPIO.HIGH, GPIO.LOW, GPIO.HIGH)
-        self._set_pwm(self.ENA, speed)
-        self._set_pwm(self.ENB, speed)
+        """Drive backward by pulsing LPWM and pulling RPWM to 0"""
+        if self._mock: return
+        speed = max(0.0, min(100.0, float(speed)))
+        self.pwm_fwd.ChangeDutyCycle(0)
+        self.pwm_bwd.ChangeDutyCycle(speed)
 
-    def turn_left(self, speed=100.0):
-        """Left motor slow, right motor fast"""
-        self._set_pins(GPIO.HIGH, GPIO.LOW, GPIO.HIGH, GPIO.LOW)
-        self._set_pwm(self.ENA, speed * 0.4) # left slow
-        self._set_pwm(self.ENB, speed * 0.7) # right fast
+    def turn_left(self, speed=50.0):
+        """In an Ackermann steering setup, the back motor just drives forward."""
+        self.move_forward(speed)
 
-    def turn_right(self, speed=100.0):
-        """Right motor slow, left motor fast"""
-        self._set_pins(GPIO.HIGH, GPIO.LOW, GPIO.HIGH, GPIO.LOW)
-        self._set_pwm(self.ENA, speed * 0.7) # left fast
-        self._set_pwm(self.ENB, speed * 0.4) # right slow
+    def turn_right(self, speed=50.0):
+        """In an Ackermann steering setup, the back motor just drives forward."""
+        self.move_forward(speed)
 
-    def reverse_turn(self, speed):
-        """Both motors backward with steering (same base logic as backward)"""
+    def reverse_turn(self, speed=50.0):
+        """Drive backward while turning."""
         self.move_backward(speed)
 
     def stop(self):
-        """Stop all motors"""
-        self._set_pins(GPIO.LOW, GPIO.LOW, GPIO.LOW, GPIO.LOW)
-        self._set_pwm(self.ENA, 0)
-        self._set_pwm(self.ENB, 0)
+        """Stop motor by zeroing both PWM signals"""
+        if self._mock: return
+        self.pwm_fwd.ChangeDutyCycle(0)
+        self.pwm_bwd.ChangeDutyCycle(0)
 
     def cleanup(self):
+        """Polite hardware shutdown"""
         if not self._mock:
             self.stop()
-            GPIO.cleanup()
+            # Disable the driver bridges
+            GPIO.output(self.R_EN, GPIO.LOW)
+            GPIO.output(self.L_EN, GPIO.LOW)
+            self.pwm_fwd.stop()
+            self.pwm_bwd.stop()
