@@ -82,7 +82,7 @@ def get_sensors():
         f_data = fusion.get_orientation() if fusion else {}
         
         motor_speed = 0.0 # Just a placeholder since motor_controller doesn't track current_speed cleanly yet
-        servo_angle = steering_servo.current_angle if steering_servo else 90.0
+        servo_angle = steering_servo.current_angle if steering_servo else 45.0
 
     return jsonify({
         "status": "success",

@@ -133,8 +133,8 @@
             <input type="range" id="speed-slider" min="0" max="100" value="50">
 
             <br>
-            <label>Servo Angle: <span id="angle-val">90</span>°</label>
-            <input type="range" id="angle-slider" min="0" max="180" value="90">
+            <label>Servo Angle: <span id="angle-val">45</span>°</label>
+            <input type="range" id="angle-slider" min="0" max="90" value="45">
 
             <div class="btn-grid" style="margin-top: 10px;">
                 <button class="btn-fwd" onclick="sendAction('forward')">FORWARD</button>
@@ -255,7 +255,7 @@
                 </div>
                 <div class="metric">
                     <div class="lbl">Servo Ang</div>
-                    <div class="val" id="act-servo">90.0</div>
+                    <div class="val" id="act-servo">45.0</div>
                 </div>
             </div>
         </div>
@@ -342,7 +342,7 @@
 
                 // Actuators
                 document.getElementById('act-motor').textContent = d.actuators?.motor_speed?.toFixed(1) || '0.0';
-                document.getElementById('act-servo').textContent = d.actuators?.servo_angle?.toFixed(1) || '90.0';
+                document.getElementById('act-servo').textContent = d.actuators?.servo_angle?.toFixed(1) || '45.0';
 
             }).catch(console.error);
         }, 1000);
