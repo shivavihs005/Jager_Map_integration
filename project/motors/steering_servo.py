@@ -17,7 +17,7 @@ class SteeringServo:
     
     def __init__(self):
         self._mock = not GPIO_AVAILABLE
-        self.current_angle = 45.0
+        self.current_angle = 90.0
 
         if not self._mock:
             GPIO.setmode(GPIO.BCM)
@@ -33,30 +33,32 @@ class SteeringServo:
             print(f"[Servo] Initialized successfully on GPIO {self.SERVO_PIN}.")
 
     def set_angle(self, target_angle):
-        # Limit to the physical bounds the user specified (0 to 90)
-        target_angle = max(0.0, min(90.0, float(target_angle)))
+        target_angle = max(0.0, min(180.0, float(target_angle)))
         self.current_angle = target_angle
         self._write_angle(self.current_angle)
 
     def _write_angle(self, angle):
         if self._mock: return
 
-        # Exact formula from test_servo.py that proved to work
-        # 0 deg = 2.5%, 45 deg = 5.0%, 90 deg = 7.5%
-        duty = 2.5 + (angle / 180.0) * 10.0
+        # Exact formula from user's working script
+        duty = 2 + (angle / 18.0)
+        GPIO.output(self.SERVO_PIN, True)
         self.pwm.ChangeDutyCycle(duty)
+        time.sleep(0.4)
+        GPIO.output(self.SERVO_PIN, False)
+        self.pwm.ChangeDutyCycle(0)
 
     def center(self):
-        """Center position = 45°"""
-        self.set_angle(45.0)
+        """Center position = 90°"""
+        self.set_angle(90.0)
 
     def steer_left(self):
-        """Left = 0°"""
-        self.set_angle(0.0)
+        """Left = 60°"""
+        self.set_angle(60.0)
 
     def steer_right(self):
-        """Right = 90°"""
-        self.set_angle(90.0)
+        """Right = 120°"""
+        self.set_angle(120.0)
         
     def cleanup(self):
         if not self._mock:
