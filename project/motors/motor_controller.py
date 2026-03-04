@@ -24,8 +24,9 @@ class MotorController:
     ENA = 0
     ENB = 1
     # GPIO Pins
-    IN1, IN2 = 23, 24
-    IN3, IN4 = 27, 22
+    # ENA and ENB are not used in this specific config since PWM is on IN pins directly or PCA
+    IN1, IN2 = 13, 12 # RPWM (forward), LPWM (backward) right (?) 
+    IN3, IN4 = 23, 24 # R_EN, L_EN -> Assuming IN3/4 act as enables for now based on standard naming
 
     def __init__(self):
         self._mock = not (PCA_AVAILABLE and GPIO_AVAILABLE)

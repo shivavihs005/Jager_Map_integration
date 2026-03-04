@@ -51,6 +51,13 @@ def turn_right():
     if motor_controller: motor_controller.turn_right(speed)
     return jsonify({"status": "success", "action": "turn_right"})
 
+@app.route('/api/set_servo', methods=['POST'])
+def set_servo():
+    data = request.json
+    angle = float(data.get('angle', 90.0))
+    if steering_servo: steering_servo.set_angle(angle)
+    return jsonify({"status": "success", "action": "set_servo"})
+
 @app.route('/api/reverse_turn', methods=['POST'])
 def reverse_turn():
     data = request.json

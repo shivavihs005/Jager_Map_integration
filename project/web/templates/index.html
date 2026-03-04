@@ -129,8 +129,12 @@
 
         <div class="card">
             <h3>Manual Control</h3>
-            <label>Speed: <span id="speed-val">50</span>%</label>
+            <label>Drive Speed: <span id="speed-val">50</span>%</label>
             <input type="range" id="speed-slider" min="0" max="100" value="50">
+
+            <br>
+            <label>Servo Angle: <span id="angle-val">90</span>°</label>
+            <input type="range" id="angle-slider" min="0" max="180" value="90">
 
             <div class="btn-grid" style="margin-top: 10px;">
                 <button class="btn-fwd" onclick="sendAction('forward')">FORWARD</button>
@@ -261,9 +265,21 @@
     <script>
         const speedSlider = document.getElementById('speed-slider');
         const speedVal = document.getElementById('speed-val');
+        const angleSlider = document.getElementById('angle-slider');
+        const angleVal = document.getElementById('angle-val');
 
         speedSlider.addEventListener('input', (e) => {
             speedVal.textContent = e.target.value;
+        });
+
+        angleSlider.addEventListener('input', (e) => {
+            const angle = e.target.value;
+            angleVal.textContent = angle;
+            fetch('/api/set_servo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ angle: parseFloat(angle) })
+            }).catch(console.error);
         });
 
         function sendAction(action) {
