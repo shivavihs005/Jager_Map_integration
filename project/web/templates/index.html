@@ -272,9 +272,14 @@
             speedVal.textContent = e.target.value;
         });
 
+        // Update text instantly while sliding
         angleSlider.addEventListener('input', (e) => {
+            angleVal.textContent = e.target.value;
+        });
+
+        // Send backend request ONLY when the user releases the slider
+        angleSlider.addEventListener('change', (e) => {
             const angle = e.target.value;
-            angleVal.textContent = angle;
             fetch('/api/set_servo', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

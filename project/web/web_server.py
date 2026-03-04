@@ -37,26 +37,26 @@ def backward():
 
 @app.route('/api/turn_left', methods=['POST'])
 def turn_left():
-    data = request.json
-    speed = float(data.get('speed', 50.0))
+    data = request.get_json()
+    speed = float(data.get("speed", 50))
     if steering_servo: steering_servo.steer_left()
     if motor_controller: motor_controller.turn_left(speed)
-    return jsonify({"status": "success", "action": "turn_left"})
+    return jsonify({"status": "ok"})
 
 @app.route('/api/turn_right', methods=['POST'])
 def turn_right():
-    data = request.json
-    speed = float(data.get('speed', 50.0))
+    data = request.get_json()
+    speed = float(data.get("speed", 50))
     if steering_servo: steering_servo.steer_right()
     if motor_controller: motor_controller.turn_right(speed)
-    return jsonify({"status": "success", "action": "turn_right"})
+    return jsonify({"status": "ok"})
 
 @app.route('/api/set_servo', methods=['POST'])
 def set_servo():
-    data = request.json
-    angle = float(data.get('angle', 90.0))
+    data = request.get_json()
+    angle = float(data.get("angle", 90))
     if steering_servo: steering_servo.set_angle(angle)
-    return jsonify({"status": "success", "action": "set_servo"})
+    return jsonify({"status": "ok"})
 
 @app.route('/api/reverse_turn', methods=['POST'])
 def reverse_turn():
