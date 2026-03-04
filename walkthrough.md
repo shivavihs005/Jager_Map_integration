@@ -72,19 +72,12 @@ Connect the following components to your Raspberry Pi 4 GPIO:
 - **RX**  -> GPIO 14 (TXD) - *Note: GPS RX connects to Pi TX*
 - **TX**  -> GPIO 15 (RXD) - *Note: GPS TX connects to Pi RX*
 
-### B. I2C Display (OLED/LCD)
-*Connect to the Pi's I2C interface*
-- **VCC** -> 3.3V (Pin 1)
-- **GND** -> GND (Pin 9)
-- **SDA** -> GPIO 2 (Pin 3)
-- **SCL** -> GPIO 3 (Pin 5)
-
 
 ### B. DC Motor Driver (L298N or similar)
-- **R_EN** (Right Enable) -> GPIO 23 (w)
-- **L_EN** (Left Enable)  -> GPIO 24 (Blue)
-- **RPWM** (Forward)      -> GPIO 13 (vilote)
-- **LPWM** (Backward)     -> GPIO 12 (orange)
+- **R_EN** (Right Enable) -> GPIO 23 (Blue)
+- **L_EN** (Left Enable)  -> GPIO 24 (orange)
+- **RPWM** (Forward)      -> GPIO 13 (gray)
+- **LPWM** (Backward)     -> GPIO 12 (vilote)
 - **GND** -> Ground
 - **VCC** -> External Motor Power (e.g., 12V LiPo)
 
@@ -129,8 +122,8 @@ This script will:
     source env/bin/activate
     git stash
     git pull origin main 
-    cd /home/pi/my-projects/Jager_Map_integration/hardware_tests
-    python app.py 
+    cd /home/pi/my-projects/Jager_Map_integration/project
+    python main.py 
     ```
 <<<<<<< HEAD
 <<<<<<< HEAD

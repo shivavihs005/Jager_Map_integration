@@ -297,14 +297,23 @@
                 if (d.status !== 'success') return;
 
                 // Fusion
-                document.getElementById('fusion-yaw').textContent = d.fusion?.yaw?.toFixed(1) || '0.0';
+                const yaw = d.fusion?.yaw || 0.0;
+                const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+                let dirIndex = Math.round(yaw / 45) % 8;
+                if (dirIndex < 0) dirIndex += 8; // Handle negative yaw just in case
+
+                document.getElementById('fusion-yaw').textContent = `${yaw.toFixed(1)}° ${directions[dirIndex]}`;
                 document.getElementById('fusion-pitch').textContent = d.fusion?.pitch?.toFixed(1) || '0.0';
                 document.getElementById('fusion-roll').textContent = d.fusion?.roll?.toFixed(1) || '0.0';
 
                 // QMC
                 const qmc = d.sensors?.qmc5883;
                 if (qmc) {
-                    document.getElementById('qmc-heading').textContent = qmc.heading?.toFixed(1) || '0.0';
+                    const heading = qmc.heading || 0.0;
+                    let headingDirIndex = Math.round(heading / 45) % 8;
+                    if (headingDirIndex < 0) headingDirIndex += 8;
+
+                    document.getElementById('qmc-heading').textContent = `${heading.toFixed(1)}° ${directions[headingDirIndex]}`;
                     document.getElementById('mag-x').textContent = qmc.mag_x?.toFixed(0) || '0';
                     document.getElementById('mag-y').textContent = qmc.mag_y?.toFixed(0) || '0';
                     document.getElementById('mag-z').textContent = qmc.mag_z?.toFixed(0) || '0';
