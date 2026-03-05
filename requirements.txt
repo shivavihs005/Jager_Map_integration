@@ -6,3 +6,4 @@ requests
 RPLCD
 smbus2
 gpiozero
+pigpio

@@ -1,22 +1,16 @@
-from gpiozero import AngularServo
-from time import sleep
+import pigpio
+import time
 
-# Initialize servo
-servo = AngularServo(18, min_angle=0, max_angle=180)
+SERVO_PIN = 18
 
-# Servo control function
+pi = pigpio.pi()
+
 def set_servo(angle):
-    servo.angle = angle
-    print(f"Servo moved to {angle} degrees")
+    pulse = 500 + (angle / 180) * 2000   # convert angle to pulse width
+    pi.set_servo_pulsewidth(SERVO_PIN, pulse)
+    print(f"Servo set to {angle}°")
 
+set_servo(90)
 
-# Test loop
 while True:
-    set_servo(0)
-    sleep(2)
-
-    set_servo(90)
-    sleep(2)
-
-    set_servo(180)
-    sleep(2)
+    time.sleep(1)
