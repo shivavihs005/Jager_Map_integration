@@ -1,0 +1,20 @@
+# Autonomous Vehicle — Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# Hardware / GPIO
+pigpio
+
+# I²C bus
+smbus2
+
+# GPS serial
+pyserial
+
+# Math / numerics
+numpy
+
+# Web dashboard
+flask
+flask-socketio
+python-socketio[asyncio_client]
+eventlet

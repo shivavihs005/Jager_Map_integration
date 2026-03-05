@@ -1,226 +1,211 @@
-# Jager Dashboard & Map Integration Walkthrough
+# Jager Autonomous Vehicle — Complete Walkthrough
 
-This document guides you through using the new Jager Dashboard, including Map Navigation, Manual Joystick Control, and configuration.
-
+---
 
 ## 0. Headless Pi Setup (Optional)
-If you are setting up a fresh Raspberry Pi without a monitor/keyboard:
 
-1.  **Enable SSH**: Create an empty file named `ssh` (no extension) in the boot partition of the SD card.
-2.  **Configure Wi-Fi**: Create a file named `wpa_supplicant.conf` in the boot partition with the following content:
-    ```conf
-    country=IN
-    ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-    update_config=1
+If setting up a fresh Raspberry Pi without a monitor:
 
-    network={
-        ssid="YOUR_PHONE_HOTSPOT_NAME"
-        psk="YOUR_HOTSPOT_PASSWORD"
-        key_mgmt=WPA-PSK
-    }
-    ```
-# Update and upgrade system
-sudo apt update && sudo apt upgrade -y
+1. **Enable SSH** — Create an empty file named `ssh` (no extension) in the SD card boot partition.
+2. **Configure Wi-Fi** — Create `wpa_supplicant.conf` in the boot partition:
 
-# Enable VNC Server
-sudo raspi-config nonint do_vnc 0
+```conf
+country=IN
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
 
-# Set a default resolution for VNC (recommended for headless)
-sudo raspi-config nonint do_resolution 2 16
-    
+network={
+    ssid="YOUR_HOTSPOT_NAME"
+    psk="YOUR_HOTSPOT_PASSWORD"
+    key_mgmt=WPA-PSK
+}
+```
 
-
-### Initial Git Setup
-After connecting to the Pi via SSH, run the following commands to set up the project:
+### Initial Git Setup (on Pi via SSH)
 
 ```bash
-# Install Git
 sudo apt update && sudo apt install git -y
-
-# Configure Git (replace with your actual name and email)
 git config --global user.name "shivavihs005"
 git config --global user.email "shivapanner2005@gmail.com"
 
-# Create project folder
-mkdir -p ~/my-projects
-cd ~/my-projects
-
-# Clone your repository
+mkdir -p ~/my-projects && cd ~/my-projects
 git clone https://github.com/shivavihs005/Jager_Map_integration.git
-
-# Enter the repository
 cd Jager_Map_integration
 
-# To pull updates later
-git stash
-git pull origin main 
-
-# Check status with the important
-git status
-
-# List files in the repository
-ls -la
+# Pull updates later:
+git stash && git pull origin main
 ```
 
+---
+
 ## 1. Hardware Connections
-Connect the following components to your Raspberry Pi 4 GPIO:
 
-### A. Neo-6M GPS Module (UART)
-*Connect to the Pi's Serial Port (`/dev/serial0`)*
-- **VCC** -> 3.3V (Pin 1)
-- **GND** -> GND (Pin 6)
-- **RX**  -> GPIO 14 (TXD) - *Note: GPS RX connects to Pi TX*
-- **TX**  -> GPIO 15 (RXD) - *Note: GPS TX connects to Pi RX*
+### A. NEO-6M GPS (UART — `/dev/serial0`)
+| GPS Pin | Pi Pin |
+|---------|--------|
+| VCC | 3.3V (Pin 1) |
+| GND | GND (Pin 6) |
+| RX | GPIO 14 / TXD |
+| TX | GPIO 15 / RXD |
 
+### B. MPU6500 IMU (I²C — address `0x68`)
+| Sensor Pin | Pi Pin |
+|------------|--------|
+| VCC | 3.3V |
+| GND | GND |
+| SDA | GPIO 2 (SDA1) |
+| SCL | GPIO 3 (SCL1) |
 
-### B. DC Motor Driver (L298N or similar)
-- **R_EN** (Right Enable) -> GPIO 23 (Blue)
-- **L_EN** (Left Enable)  -> GPIO 24 (orange)
-- **RPWM** (Forward)      -> GPIO 13 (gray)
-- **LPWM** (Backward)     -> GPIO 12 (vilote)
-- **GND** -> Ground
-- **VCC** -> External Motor Power (e.g., 5V)
+### C. QMC5883L Magnetometer (I²C — address `0x0D`)
+| Sensor Pin | Pi Pin |
+|------------|--------|
+| VCC | 3.3V |
+| GND | GND |
+| SDA | GPIO 2 (SDA1, shared) |
+| SCL | GPIO 3 (SCL1, shared) |
 
-### C. Steering Servo
-- **Signal** -> GPIO 18 (PWM)
-- **VCC** -> 5V (from external BEC/Battery usually, NOT Pi directly for high torque)
-- **GND** -> Ground (Common Ground with Pi)
+### D. BTS7960 DC Motor Driver
+| Driver Pin | GPIO |
+|------------|------|
+| R_EN | GPIO 23 |
+| L_EN | GPIO 24 |
+| RPWM (Forward) | GPIO 13 |
+| LPWM (Backward) | GPIO 12 |
 
-## 2. Software Setup (First Time)
-If you haven't set up the environment yet, run the included setup script:
+### E. Steering Servo (pigpio, hardware PWM)
+| Servo Pin | GPIO |
+|-----------|------|
+| Signal | **GPIO 17 (Pin 11)** |
+| VCC | 5V external / BEC |
+| GND | Common GND |
+
+**Pulse limits:** MAX_LEFT = 680 µs | CENTER = 1060 µs | MAX_RIGHT = 1460 µs
+
+---
+
+## 2. Software Setup (First Time Only)
 
 ```bash
-# Make executable
-chmod +x setup_env.sh
+cd /home/pi/my-projects/Jager_Map_integration
 
-# Run setup
+# Make script executable and run it
+chmod +x setup_env.sh
 ./setup_env.sh
 ```
 
-This script will:
-1. Update your system
-2. Create a virtual environment `env`
-3. Install dependencies (`flask`, `pyserial`, `pynmea2`, etc.)
-4. Install LCD libraries (`RPLCD`, `smbus2`)
-    ```bash
-    pip install RPLCD smbus2
-    ```
+The script installs:
+- System packages: `pigpio`, `i2c-tools`, `python3-venv`, `libatlas-base-dev` (for numpy)
+- Enables hardware interfaces: I²C, SPI, Serial (via `raspi-config`)
+- Enables `pigpiod` daemon on boot
+- Creates Python virtual environment `env/`
+- Installs all Python packages: `pigpio`, `smbus2`, `pyserial`, `numpy`, `flask`, `flask-socketio`, `eventlet`
 
-**Important**: Ensure Serial Port is enabled in `sudo raspi-config` > Interfacing Options > Serial.
+**After setup — reboot:**
+```bash
+sudo reboot
+```
 
-## 3. Setup & Running
-1.  **Start the Server**:
-    ```bash
-    cd /home/pi/my-projects/Jager_Map_integration
-    source env/bin/activate
-    python app.py
+---
 
-    cd /home/pi/my-projects/Jager_Map_integration/hardware_tests
-    python app.py   
+## 3. Running the Autonomous Vehicle
 
-    cd /home/pi/my-projects/Jager_Map_integration
-    source env/bin/activate
-    git stash
-    git pull origin main 
-    cd /home/pi/my-projects/Jager_Map_integration/project
-    python main.py 
-    ```
-<<<<<<< HEAD
-<<<<<<< HEAD
-    sudo tee /etc/systemd/system/jager.service <<EOF
-    [Unit]
-    Description=Jager Dashboard
-    After=network.target
+```bash
+cd /home/pi/my-projects/Jager_Map_integration
+source env/bin/activate
 
-    [Service]
-    ExecStart=$(pwd)/env/bin/python $(pwd)/app.py
-    WorkingDirectory=$(pwd)
-    StandardOutput=inherit
-    StandardError=inherit
-    Restart=always
-    User=$USER
+# Make sure pigpio daemon is running
+sudo pigpiod
 
-    [Install]
-    WantedBy=multi-user.target
-    EOF
+# Start the autonomous system
+cd autonomous_vehicle
+python main_autonomous.py
+```
 
-    sudo systemctl enable jager.service
-    sudo systemctl start jager.service
-    
-    # Check status to confirm it's running
-    sudo systemctl status jager.service
+Open the dashboard: **`http://<pi-ip>:5001`**
 
-    # Check WiFi connection logs
-    sudo cat /var/log/wifi-autoconnect.log
-    
-
-=======
->>>>>>> parent of 0b54e65 (Fully Working Code_Car+GPS+Map)
-=======
->>>>>>> parent of 0b54e65 (Fully Working Code_Car+GPS+Map)
-2.  **Access Dashboard**: Open `http://<pi-ip>:5000` in your browser.
+---
 
 ## 4. Dashboard Features
 
-### A. Status Panel
-The top-left panel shows real-time telemetry:
-- **STATUS**: Current motion (STOPPED, FORWARD, TURNING).
-- **MODE**: Current Operation Mode.
-- **GPS**: Connection status (SEARCHING vs LOCKED).
+```
+┌─────────────────────────────────────┐
+│  ⬡ JAGER  [ IDLE / NAVIGATE / STOP ]     ● 8 sats │
+├─────────────────────────────────────┤
+│                                     │
+│          LEAFLET MAP                │
+│   🔵 Vehicle (live, rotating)       │
+│   📍 Destination marker             │
+│   ─── Trajectory (blue)             │
+│                                     │
+├─────────────────┬───────────────────┤
+│  Speed  km/h    │  Compass + Roll   │
+│  Servo slider   │  Pitch / Yaw      │
+│  Navigate btn   │  IMU raw values   │
+└─────────────────┴───────────────────┘
+```
 
-### B. Mode Selection
-Use the buttons to switch modes. **Note**: Switching modes will stop the car immediately for safety.
-- **MANUAL**: Full control via Joystick.
-- **SEMI-AUTO**: Map-based navigation.
-- **AUTO**: (Future) Fully autonomous.
+| Feature | Description |
+|---------|-------------|
+| **Click map** | Drop a destination waypoint |
+| **Navigate** | Starts Pure Pursuit autonomous drive |
+| **Abort** | Emergency stop — centers servo |
+| **Servo slider** | Manual pulse override (snaps to 1060) |
+| **Live heading** | Compass needle rotates with vehicle |
 
-### C. Manual Control (Split)
-*Only visible in MANUAL mode.*
-- **Steering**: Use the LEFT Joystick to steer Left/Right.
-- **Throttle**: Use the RIGHT Buttons. Hold **FWD** to go forward, **REV** to reverse.
-- Release buttons to stop.
+---
 
-### D. Semi-Autonomous Navigation (Map)
-*Only visible in SEMI-AUTO mode.*
-1.  **Click on Map**: Drop a destination pin.
-2.  **Calculate Path**: Click the button to generate a route (Blue Line).
-3.  **Start Engine**: Begins autonomous travel to the destination.
-    -   **Straight Line Corridor**: The car creates a virtual corridor (2m width) between waypoints. As long as the car is inside this corridor, steering is forced to **STRAIGHT (0)** to eliminate GPS jitter.
-    -   **Total Distance**: telemetry displays the total remaining distance of the route.
-4.  **Emergency Stop**: Click "Status" or "Stop" to halt immediately.
+## 5. First-Run Calibration (Recommended)
 
-### E. Configuration
-- **Max Speed**: Limits the top speed output to the motors (0-100%).
-- **Max Turn**: Limits the maximum steering angle (0-100%).
-- These settings apply to *both* Manual and Semi-Auto modes.
+Uncomment these lines in `autonomous_vehicle/main_autonomous.py` for the **very first run only**:
 
-## 5. Troubleshooting
-- **Joystick not working?**: Ensure you are in MANUAL mode.
-- **Car not moving?**: Check connections and ensure Max Speed slider is > 0.
-- **Map not routing?**: Ensure the Pi has internet access for OSRM API.
+```python
+imu.calibrate()                    # Keep vehicle still for ~2 s
+mag.calibrate_hard_iron(seconds=15) # Rotate vehicle 360° slowly
+```
 
-## 6. Hardware Testing (Diagnostics)
-If you want to test the hardware components separately without running the full dashboard, use the dedicated test apps in `hardware_tests/`.
+Then comment them out again for subsequent runs.
 
-### A. GPS Test
-1.  **Run the App**:
-    ```bash
-    python hardware_tests/GPS_app.py
-    ```
-2.  **Open Browser**: Go to `http://<pi-ip>:5001`
-3.  **Verify**:
-    -   Status should change from "SEARCHING" to "LOCKED" when GPS fix is acquired.
-    -   Your location should appear on the map.
+---
 
-### B. Motors Test
-1.  **Run the App**:
-    ```bash
-    python hardware_tests/Motors_app.py
-    ```
-2.  **Open Browser**: Go to `http://<pi-ip>:5002`
-3.  **Verify**:
-    -   Use the on-screen Joystick or Buttons to drive.
-    -   Check if motors spin correctly (Forward/Reverse).
-    -   Check if steering servo moves correctly (Left/Right).
- 
+## 6. Key Tuning Parameters (`vehicle_config.py`)
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `PID_KP` | 2.5 | Higher = faster heading correction |
+| `PID_KI` | 0.05 | Removes steady-state heading drift |
+| `PID_KD` | 0.8 | Dampens steering oscillation |
+| `PURE_PURSUIT_LOOKAHEAD_M` | 0.5 m | Shorter = tighter, more oscillation |
+| `BASE_SPEED_PCT` | 50% | Cruise motor speed |
+| `WAYPOINT_REACHED_M` | 0.30 m | "Close enough" threshold |
+| `SERVO_CENTER` | 1060 µs | Edit if physical center drifts |
+
+---
+
+## 7. Module Architecture
+
+```
+sensors/ → state_estimator (100 Hz)
+             ↓ Madgwick filter → roll, pitch, yaw
+             ↓ EKF → x, y, heading, velocity
+                ↓
+         mission_manager (50 Hz)
+             ↓ Pure Pursuit → steering angle
+             ↓ PID → servo set_angle()
+             ↓ Adaptive speed → motor set_speed()
+                ↓
+         dashboard (10 Hz WebSocket push)
+             ↓ Leaflet.js live map
+```
+
+---
+
+## 8. Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `pigpio: cannot connect` | Run `sudo pigpiod` first |
+| Servo not moving | Confirm GPIO 17 wire, check `sudo pigpiod` |
+| IMU in mock mode | Check I²C: `i2cdetect -y 1` should show `68` and `0d` |
+| GPS no fix | Need outdoor clear sky; check serial: `sudo cat /dev/serial0` |
+| Dashboard blank | Ensure port 5001 isn't blocked by firewall |
 
