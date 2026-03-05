@@ -102,6 +102,12 @@ class MissionManager:
         self._servo.center()
         print("[Mission] ABORTED")
 
+    def set_max_speed(self, pct):
+        """Update cruise speed cap from dashboard slider (0-100)."""
+        import vehicle_config as vc
+        vc.BASE_SPEED_PCT = max(10.0, min(100.0, float(pct)))
+        print(f"[Mission] Max speed → {vc.BASE_SPEED_PCT:.0f}%")
+
     def get_state(self):
         with self._lock:
             return self._state

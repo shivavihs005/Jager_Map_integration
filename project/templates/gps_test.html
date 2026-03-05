@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jager — GPS Test</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Orbitron:wght@400;700;900&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --surface: rgba(15, 17, 21, 0.95);
+            --accent: #00f2ff;
+            --green: #2ed573;
+            --yellow: #ffa502;
+            --red: #ff4757;
+            --border: rgba(0, 242, 255, 0.15);
+            --glass: rgba(255, 255, 255, 0.03);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .container {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: var(--accent);
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.5);
+            margin-bottom: 4px;
+        }
+
+        .logo-sub {
+            font-size: 11px;
+            color: #555;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        /* Fix pill */
+        .fix-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--red);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            transition: all 0.4s;
+        }
+
+        .fix-badge.locked {
+            background: rgba(46, 213, 115, 0.15);
+            color: var(--green);
+            border-color: rgba(46, 213, 115, 0.3);
+        }
+
+        .fix-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.3
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: #555;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        /* Big metric */
+        .big-metric {
+            text-align: center;
+        }
+
+        .big-val {
+            font-family: 'Orbitron', monospace;
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--accent);
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+            line-height: 1;
+        }
+
+        .big-unit {
+            font-size: 12px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        /* Metric grid */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .metric {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .metric .lbl {
+            font-size: 9px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-top: 4px;
+        }
+
+        /* Coords */
+        .coord-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .coord-row:last-child {
+            border-bottom: none;
+        }
+
+        .coord-label {
+            color: #555;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        .coord-val {
+            font-family: 'JetBrains Mono';
+            color: #fff;
+        }
+
+        /* NMEA terminal */
+        .nmea-box {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #2ed573;
+            height: 90px;
+            overflow-y: auto;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        .nmea-box::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .nmea-box::-webkit-scrollbar-thumb {
+            background: #2ed57340;
+        }
+
+        /* Map */
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #0d1117;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div>
+                <div class="logo">⬡ JAGER</div>
+                <div class="logo-sub">GPS Diagnostic</div>
+            </div>
+
+            <div class="fix-badge" id="fix-badge">
+                <div class="fix-dot"></div>
+                <span id="fix-text">SEARCHING</span>
+            </div>
+
+            <!-- Speed -->
+            <div class="card">
+                <div class="card-title">Speed</div>
+                <div class="big-metric">
+                    <div class="big-val" id="speed">0.0</div>
+                    <div class="big-unit">km / h</div>
+                </div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="card">
+                <div class="card-title">Signal</div>
+                <div class="metric-grid">
+                    <div class="metric">
+                        <div class="lbl">Satellites</div>
+                        <div class="val" id="sats">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Altitude</div>
+                        <div class="val" id="alt">0 m</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Fix Quality</div>
+                        <div class="val" id="fix-q">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Updates</div>
+                        <div class="val" id="update-count">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coordinates -->
+            <div class="card">
+                <div class="card-title">Position</div>
+                <div class="coord-row">
+                    <span class="coord-label">LAT</span>
+                    <span class="coord-val" id="lat">—</span>
+                </div>
+                <div class="coord-row">
+                    <span class="coord-label">LON</span>
+                    <span class="coord-val" id="lon">—</span>
+                </div>
+            </div>
+
+            <!-- Raw NMEA -->
+            <div class="card">
+                <div class="card-title">Raw NMEA Console</div>
+                <div class="nmea-box" id="nmea-box">Waiting for data…</div>
+            </div>
+        </aside>
+
+        <!-- Map -->
+        <div id="map"></div>
+    </div>
+
+    <script>
+        const map = L.map('map', { zoomControl: true }).setView([13.08, 80.27], 14);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OSM © CARTO', subdomains: 'abcd', maxZoom: 20
+        }).addTo(map);
+
+        const vehicleIcon = L.divIcon({
+            className: '',
+            html: `<div style="width:20px;height:20px;background:#00f2ff;border:2px solid #fff;
+         border-radius:50%;box-shadow:0 0 12px rgba(0,242,255,0.7);"></div>`,
+            iconSize: [20, 20], iconAnchor: [10, 10]
+        });
+
+        let marker = null;
+        let firstFix = true;
+        let updates = 0;
+        const nmea = document.getElementById('nmea-box');
+
+        const socket = io();
+        socket.on('gps_update', (d) => {
+            updates++;
+            document.getElementById('update-count').textContent = updates;
+
+            // Fix badge
+            const badge = document.getElementById('fix-badge');
+            const text = document.getElementById('fix-text');
+            if (d.fix) {
+                badge.classList.add('locked');
+                text.textContent = 'LOCKED';
+            } else {
+                badge.classList.remove('locked');
+                text.textContent = 'SEARCHING';
+            }
+
+            // Telemetry
+            document.getElementById('speed').textContent = d.speed_kmh.toFixed(1);
+            document.getElementById('sats').textContent = d.satellites;
+            document.getElementById('alt').textContent = d.altitude.toFixed(1) + ' m';
+            document.getElementById('fix-q').textContent = d.fix_quality;
+            document.getElementById('lat').textContent = d.latitude.toFixed(7);
+            document.getElementById('lon').textContent = d.longitude.toFixed(7);
+
+            // NMEA box
+            if (d.raw_nmea) {
+                nmea.textContent = d.raw_nmea + '\n' + nmea.textContent;
+                // Keep last 20 lines
+                const lines = nmea.textContent.split('\n');
+                if (lines.length > 20) nmea.textContent = lines.slice(0, 20).join('\n');
+            }
+
+            // Map marker
+            if (d.fix && d.latitude !== 0) {
+                if (!marker) {
+                    marker = L.marker([d.latitude, d.longitude], { icon: vehicleIcon }).addTo(map);
+                } else {
+                    marker.setLatLng([d.latitude, d.longitude]);
+                }
+                if (firstFix) {
+                    map.setView([d.latitude, d.longitude], 17);
+                    firstFix = false;
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

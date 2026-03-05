@@ -88,7 +88,9 @@ def main():
     mission   = MissionManager(state_est, planner, pursuit, motor, servo)
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
-    app, socketio = create_server(mission, state_est, planner, None)
+    app, socketio = create_server(mission, state_est, planner, None,
+                                  motor=motor, servo=servo)
+
     stream        = MapStream(socketio, state_est, mission, planner)
     # Inject stream reference back
     from dashboard import web_server as _ws
