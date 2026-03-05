@@ -71,9 +71,12 @@ def main():
 
     threading.Thread(target=sensor_loop, daemon=True).start()
 
+    from behavior.turn_manager import AutonomousTurnManager
+    turn_manager = AutonomousTurnManager(motor_controller, steering_servo, fusion)
+
     # 6. Start Web Server
     # Note: start_server blocks the main thread
-    start_server(motor_controller, steering_servo, sensor_dict, fusion, data_lock, port=5001)
+    start_server(motor_controller, steering_servo, sensor_dict, fusion, data_lock, turn_manager, port=5001)
 
 if __name__ == '__main__':
     try:

@@ -133,8 +133,8 @@
             <input type="range" id="speed-slider" min="0" max="100" value="50">
 
             <br>
-            <label>Servo Angle: <span id="angle-val">90</span>°</label>
-            <input type="range" id="angle-slider" min="0" max="180" value="90">
+            <label>Servo Pulse: <span id="angle-val">1060</span></label>
+            <input type="range" id="angle-slider" min="680" max="1460" value="1060">
 
             <div class="btn-grid" style="margin-top: 10px;">
                 <button class="btn-fwd" onclick="sendAction('forward')">FORWARD</button>
@@ -254,8 +254,8 @@
                     <div class="val" id="act-motor">0.0</div>
                 </div>
                 <div class="metric">
-                    <div class="lbl">Servo Ang</div>
-                    <div class="val" id="act-servo">90.0</div>
+                    <div class="lbl">Servo Pulse</div>
+                    <div class="val" id="act-servo">1060</div>
                 </div>
             </div>
         </div>
@@ -272,18 +272,32 @@
             speedVal.textContent = e.target.value;
         });
 
-        // Update text instantly while sliding
+        // Update text instantly while sliding, apply optional visual snapping
         angleSlider.addEventListener('input', (e) => {
-            angleVal.textContent = e.target.value;
+            let val = parseInt(e.target.value);
+            // Visual snap while dragging
+            if (Math.abs(val - 1060) < 40) {
+                val = 1060;
+                e.target.value = 1060;
+            }
+            angleVal.textContent = val;
         });
 
         // Send backend request ONLY when the user releases the slider
         angleSlider.addEventListener('change', (e) => {
-            const angle = e.target.value;
+            let angle = parseInt(e.target.value);
+
+            // Final snap check on release
+            if (Math.abs(angle - 1060) < 40) {
+                angle = 1060;
+                e.target.value = 1060;
+                angleVal.textContent = 1060;
+            }
+
             fetch('/api/set_servo', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ angle: parseFloat(angle) })
+                body: JSON.stringify({ angle: angle })
             }).catch(console.error);
         });
 
@@ -347,7 +361,7 @@
 
                 // Actuators
                 document.getElementById('act-motor').textContent = d.actuators?.motor_speed?.toFixed(1) || '0.0';
-                document.getElementById('act-servo').textContent = d.actuators?.servo_angle?.toFixed(1) || '90.0';
+                document.getElementById('act-servo').textContent = d.actuators?.servo_angle || '1060';
 
             }).catch(console.error);
         }, 1000);

@@ -11,6 +11,7 @@ motor_controller = None
 steering_servo = None
 sensors = {}
 fusion = None
+turn_manager = None
 data_lock = threading.Lock()
 
 @app.route('/')
@@ -39,23 +40,22 @@ def backward():
 def turn_left():
     data = request.get_json()
     speed = float(data.get("speed", 50))
-    if steering_servo: steering_servo.steer_left()
-    if motor_controller: motor_controller.turn_left(speed)
+    if turn_manager: turn_manager.start_turn(-90, speed)
     return jsonify({"status": "ok"})
 
 @app.route('/api/turn_right', methods=['POST'])
 def turn_right():
     data = request.get_json()
     speed = float(data.get("speed", 50))
-    if steering_servo: steering_servo.steer_right()
-    if motor_controller: motor_controller.turn_right(speed)
+    if turn_manager: turn_manager.start_turn(90, speed)
     return jsonify({"status": "ok"})
 
 @app.route('/api/set_servo', methods=['POST'])
 def set_servo():
     data = request.get_json()
-    angle = float(data.get("angle", 90))
-    if steering_servo: steering_servo.set_angle(angle)
+    # Now that the slider sends pulses (680 to 1460), we use set_pulse directly instead of set_angle
+    pulse = float(data.get("angle", 1060))
+    if steering_servo: steering_servo.set_pulse(pulse)
     return jsonify({"status": "ok"})
 
 @app.route('/api/reverse_turn', methods=['POST'])
@@ -68,6 +68,7 @@ def reverse_turn():
 
 @app.route('/api/stop', methods=['POST'])
 def stop():
+    if turn_manager: turn_manager.stop_turn()
     if motor_controller: motor_controller.stop()
     return jsonify({"status": "success", "action": "stop"})
 
@@ -82,7 +83,7 @@ def get_sensors():
         f_data = fusion.get_orientation() if fusion else {}
         
         motor_speed = 0.0 # Just a placeholder since motor_controller doesn't track current_speed cleanly yet
-        servo_angle = steering_servo.current_angle if steering_servo else 90.0
+        servo_angle = steering_servo.current_pulse if steering_servo else 1060.0
 
     return jsonify({
         "status": "success",
@@ -94,12 +95,13 @@ def get_sensors():
         }
     })
 
-def start_server(motors, servo, sensor_dict, fusion_module, lock, port=5000):
-    global motor_controller, steering_servo, sensors, fusion, data_lock
+def start_server(motors, servo, sensor_dict, fusion_module, lock, turn_mgr=None, port=5000):
+    global motor_controller, steering_servo, sensors, fusion, turn_manager, data_lock
     motor_controller = motors
     steering_servo = servo
     sensors = sensor_dict
     fusion = fusion_module
+    turn_manager = turn_mgr
     data_lock = lock
     print(f"[Web] Starting server on port {port}...")
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)

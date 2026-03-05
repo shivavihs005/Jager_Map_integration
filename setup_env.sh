@@ -19,6 +19,9 @@ pip install RPLCD smbus2
 pip install joystick
 pip install numpy
 sudo apt install python3-gpiozero
+sudo apt install pigpio python3-pigpio
+
+
 
 
 # Enable Serial Port (Instructional)
