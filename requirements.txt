@@ -5,3 +5,4 @@ RPi.GPIO
 requests
 RPLCD
 smbus2
+gpiozero

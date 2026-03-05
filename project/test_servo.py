@@ -1,42 +1,22 @@
-"""
-test_servo.py — Standalone script to test servo rotation from 0 to 90 degrees
-"""
-import time
-import RPi.GPIO as GPIO
+from gpiozero import AngularServo
+from time import sleep
 
-SERVO_PIN = 18
+# Initialize servo
+servo = AngularServo(18, min_angle=0, max_angle=180)
 
-print("Setting up GPIO...")
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(SERVO_PIN, GPIO.OUT)
+# Servo control function
+def set_servo(angle):
+    servo.angle = angle
+    print(f"Servo moved to {angle} degrees")
 
-# 50Hz PWM frequency for standard RC servos
-pwm = GPIO.PWM(SERVO_PIN, 50)
-pwm.start(0)
 
-try:
-    print("Moving to 0 degrees...")
-    duty = 2.5 + (0 / 180.0) * 10.0
-    pwm.ChangeDutyCycle(duty)
-    time.sleep(2)
-    
-    print("Moving to 45 degrees...")
-    duty = 2.5 + (45 / 180.0) * 10.0
-    pwm.ChangeDutyCycle(duty)
-    time.sleep(2)
+# Test loop
+while True:
+    set_servo(0)
+    sleep(2)
 
-    print("Moving to 90 degrees...")
-    duty = 2.5 + (90 / 180.0) * 10.0
-    pwm.ChangeDutyCycle(duty)
-    time.sleep(2)
-    
-    print("Test complete.")
+    set_servo(90)
+    sleep(2)
 
-except KeyboardInterrupt:
-    print("Interrupted by user.")
-
-finally:
-    print("Cleaning up...")
-    pwm.stop()
-    GPIO.cleanup()
+    set_servo(180)
+    sleep(2)
