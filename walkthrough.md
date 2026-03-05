@@ -110,18 +110,35 @@ sudo reboot
 ## 3. Running the Autonomous Vehicle
 
 ```bash
+# 1. Go to the project root
 cd /home/pi/my-projects/Jager_Map_integration
+
+# 2. Activate the shared virtual environment
 source env/bin/activate
 
-# Make sure pigpio daemon is running
+# 3. Install the autonomous_vehicle requirements (first time or after updates)
+pip install -r autonomous_vehicle/requirements.txt
+
+# 4. Start the pigpio daemon (required before running — servo & motor won't work without it)
 sudo pigpiod
 
-# Start the autonomous system
+# 5. Run the system
+cd autonomous_vehicle
+python main_autonomous.py
+
+
+cd /home/pi/my-projects/Jager_Map_integration
+source env/bin/activate
+pip install -r autonomous_vehicle/requirements.txt
+sudo pigpiod
 cd autonomous_vehicle
 python main_autonomous.py
 ```
 
 Open the dashboard: **`http://<pi-ip>:5001`**
+
+> **Tip:** To verify the env is active: `which python` should show `.../env/bin/python`
+> **To deactivate later:** `deactivate`
 
 ---
 
