@@ -103,12 +103,8 @@ def control():
     if _motor:
         _motor.set_speed(speed)
     if _servo:
-        # Map -1..1 → pulse within physical limits
-        if angle >= 0:
-            pulse = int(SERVO_CENTER + angle * (SERVO_MAX_RIGHT - SERVO_CENTER))
-        else:
-            pulse = int(SERVO_CENTER + angle * (SERVO_CENTER - SERVO_MAX_LEFT))
-        _servo.set_pulse(pulse)
+        _servo.set_normalised(angle)   # -1.0..1.0 → 680–1060–1460 µs
+
 
     return jsonify({"status": "ok", "speed": speed, "angle": angle})
 

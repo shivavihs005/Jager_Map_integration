@@ -1,86 +1,98 @@
 """
-motor_controller.py
-BTS7960 DC motor driver using pigpio hardware PWM.
+motor_controller.py — Controls the DC drive motor using RPi.GPIO and BTS7960
+
+Ported from project/motors/motor_controller.py (confirmed working).
+Pins (from vehicle_config.py):
+    RPWM  → GPIO 13  (Forward)
+    LPWM  → GPIO 12  (Backward)
+    R_EN  → GPIO 23
+    L_EN  → GPIO 24
 """
 import time
 
 try:
-    import pigpio
-    PIGPIO_AVAILABLE = True
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
 except ImportError:
-    PIGPIO_AVAILABLE = False
+    print("[Motors] RPi.GPIO not found. Running in mock mode.")
+    GPIO_AVAILABLE = False
 
-from vehicle_config import (MOTOR_R_EN, MOTOR_L_EN, MOTOR_RPWM, MOTOR_LPWM,
-                            MOTOR_PWM_FREQ)
+from vehicle_config import MOTOR_R_EN, MOTOR_L_EN, MOTOR_RPWM, MOTOR_LPWM
 
 
 class MotorController:
-    def __init__(self, pi=None):
-        """
-        pi: shared pigpio.pi() instance. Pass one from main to avoid
-            multiple daemon connections.
-        """
-        self._mock  = not PIGPIO_AVAILABLE
-        self._speed = 0.0    # current % (-100 to 100, negative = backward)
+
+    def __init__(self):
+        self._mock = not GPIO_AVAILABLE
 
         if not self._mock:
-            self.pi = pi or pigpio.pi()
-            if not self.pi.connected:
-                print("[Motor] pigpio daemon not running — mock mode")
-                self._mock = True
-            else:
-                self._setup_pins()
-                print("[Motor] BTS7960 initialised via pigpio")
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+
+            # Setup pins as outputs
+            GPIO.setup([MOTOR_R_EN, MOTOR_L_EN, MOTOR_RPWM, MOTOR_LPWM], GPIO.OUT)
+
+            # Enable BTS7960 bridges (HIGH = driver ON)
+            GPIO.output(MOTOR_R_EN, GPIO.HIGH)
+            GPIO.output(MOTOR_L_EN, GPIO.HIGH)
+
+            # Hardware PWM at 1000 Hz on direction pins
+            self.pwm_fwd = GPIO.PWM(MOTOR_RPWM, 1000)
+            self.pwm_bwd = GPIO.PWM(MOTOR_LPWM, 1000)
+
+            self.pwm_fwd.start(0)
+            self.pwm_bwd.start(0)
+            print(f"[Motors] BTS7960 initialised on pins RPWM={MOTOR_RPWM}, LPWM={MOTOR_LPWM}")
         else:
-            self.pi = None
-            print("[Motor] pigpio not found — mock mode")
+            print("[Motors] Mock mode active")
 
-    def _setup_pins(self):
-        for pin in (MOTOR_R_EN, MOTOR_L_EN, MOTOR_RPWM, MOTOR_LPWM):
-            self.pi.set_mode(pin, pigpio.OUTPUT)
-        # Enable bridges
-        self.pi.write(MOTOR_R_EN, 1)
-        self.pi.write(MOTOR_L_EN, 1)
-        # Zero PWM
-        self.pi.hardware_PWM(MOTOR_RPWM, MOTOR_PWM_FREQ, 0)
-        self.pi.hardware_PWM(MOTOR_LPWM, MOTOR_PWM_FREQ, 0)
+    # ── Drive commands ────────────────────────────────────────────────────────
 
-    def _set_pwm(self, dutycycle_pct):
-        """dutycycle_pct: 0 to 100."""
-        dc = int(max(0, min(100, dutycycle_pct)) * 10_000)  # pigpio uses 0-1_000_000
-        return dc
-
-    def set_speed(self, speed_pct):
-        """
-        speed_pct: -100 (full reverse) to +100 (full forward).
-        0 = stop.
-        """
-        speed_pct = max(-100.0, min(100.0, float(speed_pct)))
-        self._speed = speed_pct
-
+    def move_forward(self, speed):
+        """speed: 0–100 %"""
         if self._mock:
+            print(f"[Motors MOCK] FWD {speed:.0f}%")
             return
+        speed = max(0.0, min(100.0, float(speed)))
+        self.pwm_bwd.ChangeDutyCycle(0)
+        self.pwm_fwd.ChangeDutyCycle(speed)
 
-        if speed_pct >= 0:
-            self.pi.hardware_PWM(MOTOR_LPWM, MOTOR_PWM_FREQ, 0)
-            self.pi.hardware_PWM(MOTOR_RPWM, MOTOR_PWM_FREQ,
-                                 self._set_pwm(speed_pct))
+    def move_backward(self, speed):
+        """speed: 0–100 %"""
+        if self._mock:
+            print(f"[Motors MOCK] BWD {speed:.0f}%")
+            return
+        speed = max(0.0, min(100.0, float(speed)))
+        self.pwm_fwd.ChangeDutyCycle(0)
+        self.pwm_bwd.ChangeDutyCycle(speed)
+
+    def set_speed(self, speed):
+        """
+        Unified speed interface: positive = forward, negative = backward.
+        speed: -100 to 100
+        """
+        if speed > 0:
+            self.move_forward(abs(speed))
+        elif speed < 0:
+            self.move_backward(abs(speed))
         else:
-            self.pi.hardware_PWM(MOTOR_RPWM, MOTOR_PWM_FREQ, 0)
-            self.pi.hardware_PWM(MOTOR_LPWM, MOTOR_PWM_FREQ,
-                                 self._set_pwm(-speed_pct))
+            self.stop()
 
     def stop(self):
-        self.set_speed(0)
+        """Stop motor — zero both PWM signals."""
+        if self._mock:
+            print("[Motors MOCK] STOP")
+            return
+        self.pwm_fwd.ChangeDutyCycle(0)
+        self.pwm_bwd.ChangeDutyCycle(0)
 
-    def get_speed(self):
-        return self._speed
+    # ── Cleanup ───────────────────────────────────────────────────────────────
 
     def cleanup(self):
-        self.stop()
-        if not self._mock and self.pi:
-            self.pi.write(MOTOR_R_EN, 0)
-            self.pi.write(MOTOR_L_EN, 0)
-            self.pi.hardware_PWM(MOTOR_RPWM, MOTOR_PWM_FREQ, 0)
-            self.pi.hardware_PWM(MOTOR_LPWM, MOTOR_PWM_FREQ, 0)
-        print("[Motor] Cleaned up")
+        if not self._mock:
+            self.stop()
+            GPIO.output(MOTOR_R_EN, GPIO.LOW)
+            GPIO.output(MOTOR_L_EN, GPIO.LOW)
+            self.pwm_fwd.stop()
+            self.pwm_bwd.stop()
+            print("[Motors] Cleaned up")

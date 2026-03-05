@@ -51,7 +51,7 @@
             overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none;
+            /* NOTE: Do NOT set touch-action:none here — it blocks nipplejs */
         }
 
         /* ─── VIEWS (only one visible at a time) ─────────────────────────────── */
@@ -545,13 +545,18 @@
         }
 
         #steer-zone {
-            width: 200px;
-            height: 200px;
+            width: 220px;
+            height: 220px;
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border);
-            border-radius: 50%;
+            border-radius: 16px;
+            /* Square-ish — NOT 50%! Circle clips handle */
             position: relative;
-            box-shadow: 0 0 40px rgba(0, 242, 255, 0.05);
+            box-shadow: 0 0 40px rgba(0, 242, 255, 0.05), inset 0 0 20px rgba(0, 0, 0, 0.3);
+            touch-action: none;
+            /* Allow nipplejs to capture events */
+            overflow: visible;
+            /* Never clip the nipple handle */
         }
 
         /* Center — throttle + stop */
@@ -1122,14 +1127,21 @@
         function initJoystick() {
             if (joyManager) return;
             const zone = document.getElementById('steer-zone');
+
+            // Use dynamic mode — nipple appears where the user touches/clicks.
+            // Do NOT use lockY here; instead we ignore the Y component in code.
+            // This works for both mouse and touch.
             joyManager = nipplejs.create({
-                zone, mode: 'static', position: { left: '50%', top: '50%' },
-                color: '#00f2ff', size: 120, lockY: true    // horizontal only
+                zone: zone,
+                mode: 'dynamic',
+                color: '#00f2ff',
+                size: 80
             });
 
             joyManager.on('move', (evt, data) => {
-                const maxDist = 60.0;
-                let val = data.instance.frontPosition.x / maxDist;
+                if (!data || !data.vector) return;
+                // Use only X axis (ignore Y completely)
+                let val = data.vector.x;   // nipplejs -1..1 normalised
                 val = Math.max(-1.0, Math.min(1.0, val));
                 steerAngle = val;
                 updateSteerUI(val);
