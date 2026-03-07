@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RC-NAV-01 Mission Control</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#050a05;--bg1:#0a120a;--bg2:#0f1c0f;--bg3:#152615;
+  --border:#1d331d;--border-b:#2a4e2a;
+  --g:#00ff41;--g2:#00cc33;--amber:#ffaa00;--red:#ff3333;--blue:#00aaff;
+  --text:#b8d4b8;--dim:#4a6a4a;--bright:#e0f0e0;
+  --mono:'Share Tech Mono',monospace;--disp:'Orbitron',monospace;
+}
+html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--mono);overflow:hidden}
+.dashboard{display:flex;height:100vh}
+.left{width:390px;min-width:390px;display:flex;flex-direction:column;background:var(--bg1);border-right:1px solid var(--border);overflow:hidden}
+.right{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%}
+.hdr{padding:11px 16px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.car-name{font-family:var(--disp);font-size:14px;font-weight:900;letter-spacing:3px;color:var(--g);text-shadow:0 0 24px rgba(0,255,65,.4)}
+.badge{font-size:10px;letter-spacing:1.5px;padding:3px 9px;border-radius:2px;border:1px solid var(--border-b);background:var(--bg0);color:var(--dim);transition:all .3s}
+.badge.active{color:var(--g);border-color:var(--g);background:rgba(0,255,65,.07);box-shadow:0 0 8px rgba(0,255,65,.2)}
+.badge.running{color:var(--amber);border-color:var(--amber);background:rgba(255,170,0,.07);animation:pa 1s infinite}
+.badge.error{color:var(--red);border-color:var(--red);background:rgba(255,51,51,.07)}
+.badge.done{color:var(--blue);border-color:var(--blue);background:rgba(0,170,255,.07)}
+@keyframes pa{0%,100%{opacity:1}50%{opacity:.55}}
+.steps{display:flex;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative}
+.step:not(:last-child)::after{content:'';position:absolute;top:5px;left:calc(50% + 6px);right:calc(-50% + 6px);height:1px;background:var(--border);z-index:0}
+.step.done:not(:last-child)::after{background:var(--g2)}
+.sdot{width:12px;height:12px;border-radius:50%;border:1px solid var(--border-b);background:var(--bg0);z-index:1;transition:all .3s}
+.step.done .sdot{background:var(--g2);border-color:var(--g2);box-shadow:0 0 6px var(--g2)}
+.step.active .sdot{background:var(--g);border-color:var(--g);box-shadow:0 0 10px var(--g)}
+.slbl{font-size:8px;letter-spacing:.5px;color:var(--dim);text-align:center}
+.step.done .slbl,.step.active .slbl{color:var(--text)}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.sc{background:var(--bg1);padding:9px 12px}
+.slabel{font-size:9px;letter-spacing:1.5px;color:var(--dim);margin-bottom:5px;display:flex;align-items:center;gap:4px}
+.sval{font-family:var(--disp);font-size:12px;color:var(--g);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ssub{font-size:9px;color:var(--dim);margin-top:3px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim);transition:all .3s;flex-shrink:0}
+.dot.ok{background:var(--g);box-shadow:0 0 5px var(--g)}
+.dot.warn{background:var(--amber);box-shadow:0 0 5px var(--amber)}
+.dot.err{background:var(--red)}
+.cmp-section{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.cmp-wrap{width:80px;height:80px;flex-shrink:0}
+#compass{width:80px;height:80px}
+.hdg-info{flex:1}
+.hdg-val{font-family:var(--disp);font-size:30px;font-weight:700;color:var(--g);line-height:1;text-shadow:0 0 20px rgba(0,255,65,.25)}
+.hdg-lbl{font-size:9px;letter-spacing:2px;color:var(--dim);margin-top:2px}
+.hdg-dir{font-size:12px;color:var(--amber);margin-top:4px;letter-spacing:1px}
+.spd-row{margin-top:6px;font-size:11px;color:var(--dim)}
+.spd-row span{color:var(--text);font-family:var(--disp)}
+.act-section{padding:11px 16px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.act-lbl{font-size:9px;letter-spacing:1.5px;color:var(--dim);margin-bottom:6px}
+.bar{height:7px;background:var(--bg0);border:1px solid var(--border-b);border-radius:1px;overflow:hidden;position:relative}
+.bfill{height:100%;background:var(--g2);border-radius:1px;transition:width .3s,background .3s;box-shadow:0 0 6px var(--g2)}
+.bcenter{position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border-b)}
+.sleft{position:absolute;right:50%;top:0;height:100%;background:var(--amber);border-radius:1px 0 0 1px;transition:width .3s}
+.sright{position:absolute;left:50%;top:0;height:100%;background:var(--amber);border-radius:0 1px 1px 0;transition:width .3s}
+.act-val{font-family:var(--disp);font-size:10px;color:var(--text);margin-top:4px}
+.btns{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.brow{display:flex;gap:6px}
+.btn{flex:1;padding:9px 8px;font-family:var(--mono);font-size:11px;letter-spacing:1px;cursor:pointer;border:1px solid;background:transparent;border-radius:2px;transition:all .2s;text-transform:uppercase;position:relative;overflow:hidden}
+.btn:disabled{opacity:.25;cursor:not-allowed}
+.bg{color:var(--g);border-color:var(--g)}
+.ba{color:var(--amber);border-color:var(--amber)}
+.br{color:var(--red);border-color:var(--red)}
+.bb{color:var(--blue);border-color:var(--blue)}
+.bp{background:rgba(0,255,65,.08);color:var(--g);border-color:var(--g);font-weight:bold;box-shadow:0 0 14px rgba(0,255,65,.12)}
+.term-wrap{flex:1;display:flex;flex-direction:column;min-height:130px;overflow:hidden}
+.term-hdr{padding:5px 12px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:9px;letter-spacing:2px;color:var(--dim);display:flex;align-items:center;justify-content:space-between}
+#terminal{flex:1;overflow-y:auto;padding:7px 12px;font-size:11px;line-height:1.75;background:var(--bg0)}
+.ll{display:flex;gap:8px}
+.lt{color:var(--dim);min-width:56px;flex-shrink:0}.lm{color:var(--text)}.lok{color:var(--g)}.lwarn{color:var(--amber)}.lerr{color:var(--red)}.linfo{color:var(--blue)}
+.ov-tl{position:absolute;top:12px;left:12px;z-index:1000;background:rgba(5,10,5,.88);border:1px solid var(--border-b);padding:6px 12px;font-size:11px;letter-spacing:1px;backdrop-filter:blur(6px);pointer-events:none}
+.ov-hint{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(5,10,5,.92);border:1px solid var(--border-b);padding:8px 18px;font-size:12px;letter-spacing:1px;backdrop-filter:blur(6px);pointer-events:none;white-space:nowrap;transition:opacity .4s}
+.leaflet-tile{filter:brightness(.75) saturate(.55) hue-rotate(95deg)}
+.leaflet-popup-content-wrapper{background:var(--bg2)!important;color:var(--text)!important;border:1px solid var(--border-b)!important;border-radius:2px!important;box-shadow:0 4px 24px rgba(0,0,0,.9)!important;font-family:var(--mono)!important;font-size:12px!important}
+.leaflet-popup-tip{background:var(--bg2)!important}
+.leaflet-control-zoom a{background:var(--bg2)!important;color:var(--g)!important;border-color:var(--border-b)!important}
+.leaflet-control-attribution{background:rgba(5,10,5,.7)!important;color:var(--dim)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--g2)!important}
+@keyframes ring-out{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.8);opacity:0}}
+.cm-ring{position:absolute;top:-4px;left:-4px;width:22px;height:22px;border-radius:50%;border:2px solid var(--g);animation:ring-out 1.6s ease-out infinite}
+.cm-dot{width:14px;height:14px;border-radius:50%;background:var(--g);border:2.5px solid white;box-shadow:0 0 0 2px var(--g),0 0 12px rgba(0,255,65,.5);position:relative;z-index:1}
+@media (max-width: 980px){.dashboard{flex-direction:column}.left{width:100%;min-width:0;height:55vh}.right{height:45vh}}
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <div class="left">
+    <div class="hdr">
+      <span class="car-name">RC-NAV-01</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:9px;color:var(--dim);letter-spacing:1px" id="mode-chip">Mock Mode</span>
+        <span class="badge" id="badge">BOOT</span>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step" data-s="0"><div class="sdot"></div><div class="slbl">CALIB</div></div>
+      <div class="step" data-s="1"><div class="sdot"></div><div class="slbl">GPS</div></div>
+      <div class="step" data-s="2"><div class="sdot"></div><div class="slbl">DEST</div></div>
+      <div class="step" data-s="3"><div class="sdot"></div><div class="slbl">ROUTE</div></div>
+      <div class="step" data-s="4"><div class="sdot"></div><div class="slbl">NAV</div></div>
+      <div class="step" data-s="5"><div class="sdot"></div><div class="slbl">DONE</div></div>
+    </div>
+
+    <div class="sgrid">
+      <div class="sc">
+        <div class="slabel"><span class="dot" id="d-gps"></span>NEO-6M GPS</div>
+        <div class="sval" id="v-gps">-</div>
+        <div class="ssub" id="s-gps">sats: - | hdop: -</div>
+      </div>
+      <div class="sc">
+        <div class="slabel"><span class="dot" id="d-imu"></span>MPU6500 ACCEL</div>
+        <div class="sval" id="v-imu">- - -</div>
+        <div class="ssub" id="s-imu">m/s2 X Y Z | -C</div>
+      </div>
+      <div class="sc">
+        <div class="slabel"><span class="dot" id="d-mag"></span>QMC5883L MAG</div>
+        <div class="sval" id="v-mag">-</div>
+        <div class="ssub" id="s-mag">raw X: - Y: -</div>
+      </div>
+      <div class="sc">
+        <div class="slabel"><span class="dot" id="d-gyr"></span>MPU6500 GYRO</div>
+        <div class="sval" id="v-gyr">- - -</div>
+        <div class="ssub">deg/s X Y Z</div>
+      </div>
+    </div>
+
+    <div class="cmp-section">
+      <div class="cmp-wrap"><canvas id="compass" width="160" height="160"></canvas></div>
+      <div class="hdg-info">
+        <div class="hdg-val" id="hdg-deg">--- deg</div>
+        <div class="hdg-lbl">FUSED HEADING</div>
+        <div class="hdg-dir" id="hdg-dir">-</div>
+        <div class="spd-row">
+          SPD <span id="spd-v">0.00</span> m/s | WP <span id="wp-v">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="act-section">
+      <div>
+        <div class="act-lbl">BTS7960 MOTOR PWM</div>
+        <div class="bar"><div class="bfill" id="motor-bar" style="width:0%"></div></div>
+        <div class="act-val" id="motor-v">0% - STOP</div>
+      </div>
+      <div>
+        <div class="act-lbl">SERVO PULSE</div>
+        <div class="bar">
+          <div class="bcenter"></div>
+          <div class="sleft" id="srv-l" style="width:0%"></div>
+          <div class="sright" id="srv-r" style="width:0%"></div>
+        </div>
+        <div class="act-val" id="srv-v">1060us - CENTER</div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <div class="brow"><button class="btn bg" id="b-cal" onclick="calibrate()">CALIBRATE SENSORS</button></div>
+      <div class="brow"><button class="btn ba" id="b-pth" disabled onclick="calcPath()">CALCULATE PATH</button></div>
+      <div class="brow">
+        <button class="btn bp" id="b-go" disabled onclick="startNav()">START NAVIGATION</button>
+        <button class="btn br" id="b-stp" disabled onclick="stopNav()">STOP</button>
+      </div>
+      <div class="brow"><button class="btn bb" id="b-rst" onclick="resetAll()">RESET</button></div>
+    </div>
+
+    <div class="term-wrap">
+      <div class="term-hdr"><span>SERIAL OUTPUT</span><span id="t-cnt">0 LINES</span></div>
+      <div id="terminal"></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div id="map"></div>
+    <div class="ov-tl" id="ov-coords">LAT - | LON -</div>
+    <div class="ov-hint" id="ov-hint">Click CALIBRATE to initialize the system</div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_HOME = { lat: 13.1581, lon: 80.3208 };
+const STEP_MAP = { CALIBRATING:0, READY:1, DEST_SET:2, DEST_INVALID:2, CALCULATING:3, PATH_READY:3, RUNNING:4, COMPLETED:5 };
+const BADGE_MAP = {
+  BOOT:['BOOT',''], CALIBRATING:['CALIBRATING','running'], READY:['READY','active'],
+  DEST_SET:['DEST SET','active'], DEST_INVALID:['INVALID','error'], CALCULATING:['ROUTING','running'],
+  PATH_READY:['PATH READY','active'], RUNNING:['NAVIGATING','running'], COMPLETED:['COMPLETED','done']
+};
+const HINT_MAP = {
+  BOOT:'Click CALIBRATE to initialize sensors',
+  CALIBRATING:'Calibrating sensors - keep the car stationary',
+  READY:'GPS locked - click on a road on the map to set destination',
+  DEST_SET:'Destination set - click CALCULATE PATH',
+  DEST_INVALID:'Invalid destination - click directly on a road',
+  CALCULATING:'Building route via OSRM planner',
+  PATH_READY:'Route ready - click START NAVIGATION',
+  RUNNING:'Autonomous navigation active',
+  COMPLETED:'Destination reached - click RESET for the next run'
+};
+
+let map;
+let carMarker;
+let destMarker;
+let routePolyline;
+let lastRouteKey = '';
+let currentState = null;
+
+function initMap() {
+  map = L.map('map', { center:[DEFAULT_HOME.lat, DEFAULT_HOME.lon], zoom:16, zoomControl:false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom:19
+  }).addTo(map);
+  L.control.zoom({ position:'topright' }).addTo(map);
+
+  const carIcon = L.divIcon({
+    className:'',
+    html:'<div style="position:relative;width:22px;height:22px"><div class="cm-ring"></div><div class="cm-dot" style="position:absolute;top:4px;left:4px"></div></div>',
+    iconSize:[22,22], iconAnchor:[11,11]
+  });
+  const destIcon = L.divIcon({
+    className:'',
+    html:'<div style="width:16px;height:16px;border-radius:50%;background:#ff3333;border:3px solid #fff;box-shadow:0 0 0 2px #ff3333,0 0 14px rgba(255,51,51,.6)"></div>',
+    iconSize:[16,16], iconAnchor:[8,8]
+  });
+
+  carMarker = L.marker([DEFAULT_HOME.lat, DEFAULT_HOME.lon], { icon: carIcon, zIndexOffset:1000 }).addTo(map);
+  carMarker.bindPopup('<b style="color:#00ff41">RC-NAV-01</b><br>Current Position');
+  map.on('click', onMapClick);
+  map.on('mousemove', e => {
+    document.getElementById('ov-coords').textContent = `LAT ${e.latlng.lat.toFixed(6)} | LON ${e.latlng.lng.toFixed(6)}`;
+  });
+
+  window._destIcon = destIcon;
+}
+
+async function apiPost(path, payload = {}) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return response.json();
+}
+
+async function refreshState(fitRoute = false) {
+  try {
+    const response = await fetch('/api/state');
+    const state = await response.json();
+    currentState = state;
+    renderState(state, fitRoute);
+  } catch (error) {
+    document.getElementById('ov-hint').textContent = 'Backend unavailable';
+  }
+}
+
+function renderState(state, fitRoute = false) {
+  renderPhase(state.phase);
+  renderSensors(state);
+  renderActuators(state);
+  renderMap(state, fitRoute);
+  renderLogs(state.logs || []);
+  document.getElementById('mode-chip').textContent = state.hardware.mock_mode ? 'Mock Mode' : 'Hardware Mode';
+}
+
+function renderPhase(phase) {
+  const badgeData = BADGE_MAP[phase] || ['UNKNOWN', ''];
+  const badge = document.getElementById('badge');
+  badge.textContent = badgeData[0];
+  badge.className = `badge ${badgeData[1]}`;
+  document.getElementById('ov-hint').textContent = HINT_MAP[phase] || '';
+
+  const activeIndex = STEP_MAP[phase] ?? -1;
+  document.querySelectorAll('.step').forEach((element, index) => {
+    element.className = 'step';
+    if (index < activeIndex) {
+      element.classList.add('done');
+    } else if (index === activeIndex) {
+      element.classList.add('active');
+    }
+  });
+
+  const canRoute = phase === 'DEST_SET' || phase === 'PATH_READY';
+  document.getElementById('b-pth').disabled = !canRoute;
+  document.getElementById('b-go').disabled = phase !== 'PATH_READY';
+  document.getElementById('b-stp').disabled = phase !== 'RUNNING';
+}
+
+function renderSensors(state) {
+  const gps = state.sensors.gps;
+  const imu = state.sensors.imu;
+  const mag = state.sensors.mag;
+  const fusion = state.sensors.fusion;
+  const hasFix = gps.fix_status === 'Fix';
+
+  document.getElementById('v-gps').textContent = hasFix ? `${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}` : 'NO FIX';
+  document.getElementById('s-gps').textContent = `sats: ${gps.satellite_count} | hdop: ${gps.hdop.toFixed(1)}`;
+  document.getElementById('d-gps').className = `dot ${hasFix ? 'ok' : 'warn'}`;
+
+  document.getElementById('v-imu').textContent = `${imu.acc_x.toFixed(2)} ${imu.acc_y.toFixed(2)} ${imu.acc_z.toFixed(2)}`;
+  document.getElementById('s-imu').textContent = `m/s2 X Y Z | ${imu.temp_c.toFixed(1)}C`;
+  document.getElementById('d-imu').className = 'dot ok';
+
+  document.getElementById('v-mag').textContent = `${mag.heading.toFixed(1)} deg`;
+  document.getElementById('s-mag').textContent = `raw X:${mag.mag_x} Y:${mag.mag_y}`;
+  document.getElementById('d-mag').className = 'dot ok';
+
+  document.getElementById('v-gyr').textContent = `${imu.gyro_x.toFixed(2)} ${imu.gyro_y.toFixed(2)} ${imu.gyro_z.toFixed(2)}`;
+  document.getElementById('d-gyr').className = 'dot ok';
+
+  drawCompass(fusion.heading);
+  document.getElementById('hdg-deg').textContent = `${Math.round(fusion.heading)} deg`;
+  document.getElementById('hdg-dir').textContent = toCardinal(fusion.heading);
+  document.getElementById('spd-v').textContent = gps.speed_mps.toFixed(2);
+  document.getElementById('wp-v').textContent = state.navigation.route.length ? `${state.navigation.route_index}/${state.navigation.route.length}` : '-';
+}
+
+function renderActuators(state) {
+  const motor = state.actuators.motor_pwm;
+  const direction = state.actuators.motor_direction;
+  const pulse = state.actuators.servo_pulse;
+  const center = 1060;
+  const left = 680;
+  const right = 1460;
+
+  const motorBar = document.getElementById('motor-bar');
+  motorBar.style.width = `${motor}%`;
+  motorBar.style.background = motor > 70 ? 'var(--amber)' : 'var(--g2)';
+  document.getElementById('motor-v').textContent = `${motor.toFixed(0)}% - ${direction}`;
+
+  let leftWidth = 0;
+  let rightWidth = 0;
+  let label = 'CENTER';
+  if (pulse < center) {
+    leftWidth = ((center - pulse) / (center - left)) * 50;
+    label = `${Math.round(leftWidth * 2)}% LEFT`;
+  } else if (pulse > center) {
+    rightWidth = ((pulse - center) / (right - center)) * 50;
+    label = `${Math.round(rightWidth * 2)}% RIGHT`;
+  }
+  document.getElementById('srv-l').style.width = `${leftWidth}%`;
+  document.getElementById('srv-r').style.width = `${rightWidth}%`;
+  document.getElementById('srv-v').textContent = `${pulse}us - ${label}`;
+}
+
+function renderMap(state, fitRoute = false) {
+  const gps = state.sensors.gps;
+  const route = state.navigation.route || [];
+  const destination = state.navigation.destination;
+  carMarker.setLatLng([gps.latitude, gps.longitude]);
+
+  if (destination) {
+    if (!destMarker) {
+      destMarker = L.marker(destination, { icon: window._destIcon }).addTo(map);
+    }
+    destMarker.setLatLng(destination);
+    destMarker.bindPopup(`<b style="color:#ff3333">DESTINATION</b><br>${state.navigation.destination_name || 'Selected road'}`);
+  } else if (destMarker) {
+    map.removeLayer(destMarker);
+    destMarker = null;
+  }
+
+  const routeKey = JSON.stringify(route);
+  if (routeKey !== lastRouteKey) {
+    lastRouteKey = routeKey;
+    if (routePolyline) {
+      map.removeLayer(routePolyline);
+      routePolyline = null;
+    }
+    if (route.length) {
+      routePolyline = L.polyline(route, { color:'#00ff41', weight:3.5, opacity:.85, dashArray:'10 5' }).addTo(map);
+      if (fitRoute) {
+        map.fitBounds(routePolyline.getBounds(), { padding:[50,50] });
+      }
+    }
+  }
+}
+
+function renderLogs(logs) {
+  const terminal = document.getElementById('terminal');
+  terminal.innerHTML = logs.map(entry => {
+    const cls = { m:'lm', ok:'lok', warn:'lwarn', err:'lerr', info:'linfo' }[entry.level] || 'lm';
+    return `<div class="ll"><span class="lt">[${entry.ts}]</span><span class="${cls}">${entry.msg}</span></div>`;
+  }).join('');
+  terminal.scrollTop = terminal.scrollHeight;
+  document.getElementById('t-cnt').textContent = `${logs.length} LINES`;
+}
+
+async function calibrate() {
+  await apiPost('/api/calibrate');
+  refreshState();
+}
+
+async function calcPath() {
+  await apiPost('/api/route');
+  refreshState(true);
+}
+
+async function startNav() {
+  await apiPost('/api/navigation/start');
+  refreshState();
+}
+
+async function stopNav() {
+  await apiPost('/api/navigation/stop');
+  refreshState();
+}
+
+async function resetAll() {
+  await apiPost('/api/reset');
+  refreshState(true);
+}
+
+async function onMapClick(event) {
+  if (!currentState || !['READY', 'DEST_INVALID', 'DEST_SET', 'PATH_READY'].includes(currentState.phase)) {
+    return;
+  }
+  await apiPost('/api/destination', { lat: event.latlng.lat, lon: event.latlng.lng });
+  refreshState();
+}
+
+function drawCompass(heading) {
+  const canvas = document.getElementById('compass');
+  const ctx = canvas.getContext('2d');
+  const cx = 80;
+  const cy = 80;
+  const radius = 72;
+  ctx.clearRect(0, 0, 160, 160);
+  ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.strokeStyle = '#1d331d'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, radius - 12, 0, Math.PI * 2); ctx.strokeStyle = '#152615'; ctx.lineWidth = 1; ctx.stroke();
+  for (let index = 0; index < 72; index++) {
+    const angle = (index * 5 - 90) * Math.PI / 180;
+    const length = index % 18 === 0 ? 11 : index % 9 === 0 ? 7 : index % 3 === 0 ? 4 : 2;
+    const inner = radius - 2 - length;
+    ctx.beginPath();
+    ctx.moveTo(cx + (radius - 2) * Math.cos(angle), cy + (radius - 2) * Math.sin(angle));
+    ctx.lineTo(cx + inner * Math.cos(angle), cy + inner * Math.sin(angle));
+    ctx.strokeStyle = length > 6 ? '#2a4e2a' : length > 3 ? '#1e3e1e' : '#182e18';
+    ctx.lineWidth = length > 6 ? 1.5 : 1;
+    ctx.stroke();
+  }
+  [['N',0,'#ff5555'],['E',90,'#4a6a4a'],['S',180,'#4a6a4a'],['W',270,'#4a6a4a']].forEach(([label, degrees, color]) => {
+    const angle = (degrees - 90) * Math.PI / 180;
+    const x = cx + (radius - 18) * Math.cos(angle);
+    const y = cy + (radius - 18) * Math.sin(angle) + 3;
+    ctx.font = 'bold 9px Share Tech Mono';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, y);
+  });
+  const needleAngle = (heading - 90) * Math.PI / 180;
+  const needleLength = radius - 24;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(needleAngle);
+  ctx.beginPath(); ctx.moveTo(0, -needleLength); ctx.lineTo(5, 2); ctx.lineTo(-5, 2); ctx.closePath();
+  ctx.fillStyle = '#00ff41'; ctx.shadowBlur = 10; ctx.shadowColor = '#00ff41'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, needleLength * .65); ctx.lineTo(4, -2); ctx.lineTo(-4, -2); ctx.closePath();
+  ctx.fillStyle = '#1a2e1a'; ctx.shadowBlur = 0; ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fillStyle = '#00ff41'; ctx.fill();
+}
+
+function toCardinal(heading) {
+  return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(heading / 22.5) % 16];
+}
+
+initMap();
+drawCompass(0);
+refreshState(true);
+setInterval(() => refreshState(false), 500);
+</script>
+</body>
+</html>

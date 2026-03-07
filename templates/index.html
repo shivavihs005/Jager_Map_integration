@@ -9,14 +9,14 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet.css') }}">
 
-    <!-- Google Fonts (Keep CDN for now as fallbacks, attempting offline) -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=Orbitron:wght@400;500;700&display=swap"
         rel="stylesheet">
 
-    <!-- Custom CSS -->
+    <!-- Dashboard CSS (this module's own static folder) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
     <!-- Nipple.js for Joystick -->
@@ -25,12 +25,21 @@
 
 <body class="light-theme">
 
+    <!-- Portrait rotation warning -->
+    <div class="rotate-overlay">
+        <div class="rotate-icon">📱</div>
+        <p>ROTATE DEVICE TO LANDSCAPE</p>
+        <p style="font-size:0.8rem; opacity:0.6;">Dashboard requires horizontal orientation</p>
+    </div>
+
     <div class="app-container">
-        <!-- Sidebar Controls -->
+
+        <!-- ═══════════════════════════════════════
+             SIDEBAR
+        ════════════════════════════════════════ -->
         <aside class="sidebar">
             <div class="logo">
                 <h1>JAGER <span class="accent">DASH</span></h1>
-                <!-- From Uiverse.io by EddyBel -->
                 <label class="switch">
                     <input type="checkbox" class="input__check" id="theme-toggle">
                     <span class="slider"></span>
@@ -53,7 +62,7 @@
                     </div>
                     <div class="status-row">
                         <span class="label">MODE</span>
-                        <span class="value accent-text" id="current-mode">MANUAL</span>
+                        <span class="value accent-text" id="current-mode">AUTONOMOUS</span>
                     </div>
                     <div class="status-row">
                         <span class="label">GPS</span>
@@ -61,75 +70,144 @@
                     </div>
                 </div>
 
-                <!-- Manual Control (Split) -->
-                <div id="manual-controls" class="control-section">
-                    <h3>MANUAL CONTROL</h3>
-                    <div class="split-controls">
-                        <div class="steer-zone" id="joystick-zone">
-                            <div class="zone-label">STEER</div>
+                <!-- ── GPS SENSOR CARD ── -->
+                <div class="sensor-card">
+                    <h3><span class="sensor-dot" id="s-gps-dot"></span> NEO-6M GPS</h3>
+                    <div class="sensor-grid">
+                        <div class="sensor-item full">
+                            <div class="s-label">LATITUDE</div>
+                            <div class="s-val" id="s-gps-lat">--</div>
                         </div>
-                        <div class="drive-zone">
-                            <button id="btn-forward" class="drive-btn">▲<br>FWD</button>
-                            <button id="btn-backward" class="drive-btn">▼<br>REV</button>
+                        <div class="sensor-item full">
+                            <div class="s-label">LONGITUDE</div>
+                            <div class="s-val" id="s-gps-lng">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">ALTITUDE</div>
+                            <div class="s-val" id="s-gps-alt">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">SATELLITES</div>
+                            <div class="s-val" id="s-gps-sats">0</div>
                         </div>
                     </div>
-                    <p class="instruction">Joystick to Steer • Buttons to Drive</p>
                 </div>
 
-                <!-- Semi-Auto Controls (Map Actions) -->
-                <div id="semi-auto-controls" class="control-section hidden">
+                <!-- ── IMU SENSOR CARD ── -->
+                <div class="sensor-card">
+                    <h3><span class="sensor-dot" id="s-imu-dot"></span> MPU6500 IMU</h3>
+                    <div class="sensor-grid">
+                        <div class="sensor-item">
+                            <div class="s-label">ACC X (m/s²)</div>
+                            <div class="s-val" id="s-acc-x">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">ACC Y (m/s²)</div>
+                            <div class="s-val" id="s-acc-y">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">ACC Z (m/s²)</div>
+                            <div class="s-val" id="s-acc-z">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">TEMP</div>
+                            <div class="s-val" id="s-temp">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">GYRO X (°/s)</div>
+                            <div class="s-val" id="s-gyro-x">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">GYRO Y (°/s)</div>
+                            <div class="s-val" id="s-gyro-y">--</div>
+                        </div>
+                        <div class="sensor-item full">
+                            <div class="s-label">GYRO Z (°/s)</div>
+                            <div class="s-val" id="s-gyro-z">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── MAGNETOMETER CARD ── -->
+                <div class="sensor-card">
+                    <h3><span class="sensor-dot" id="s-mag-dot"></span> QMC5883L MAG</h3>
+                    <div class="sensor-grid">
+                        <div class="sensor-item">
+                            <div class="s-label">MAG X</div>
+                            <div class="s-val" id="s-mag-x">--</div>
+                        </div>
+                        <div class="sensor-item">
+                            <div class="s-label">MAG Y</div>
+                            <div class="s-val" id="s-mag-y">--</div>
+                        </div>
+                        <div class="sensor-item full">
+                            <div class="s-label">HEADING</div>
+                            <div class="s-val" id="s-mag-hdg">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Control (Joystick + Drive Buttons) -->
+                <!-- Removed from sidebar, moving to fullscreen overlay for MANUAL mode -->
+
+                <!-- Autonomous Navigation Controls -->
+                <div id="semi-auto-controls" class="control-section">
                     <h3>NAVIGATION</h3>
                     <div class="action-card">
                         <button id="calc-route-btn" class="primary-btn" disabled>
                             <span class="icon">➤</span> Calculate Path
                         </button>
-
                         <button id="start-travel-btn" class="travel-btn hidden">
-                            <span class="icon">🚀</span> Start Engine
+                            <span class="icon">🚀</span> Start Travel
+                        </button>
+                        <button id="pause-travel-btn" class="secondary-btn hidden">
+                            <span class="icon">⏸</span> Pause
+                        </button>
+                        <button id="continue-travel-btn" class="travel-btn hidden">
+                            <span class="icon">▶</span> Continue
                         </button>
                         <button id="stop-travel-btn" class="stop-btn hidden">
                             <span class="icon">⏹</span> Emergency Stop
                         </button>
-
-                        <button id="reset-btn" class="secondary-btn">
-                            Reset Map
-                        </button>
+                        <button id="reset-btn" class="secondary-btn">Reset Route</button>
                     </div>
                 </div>
 
-                <!-- Settings (Sliders) -->
+                <!-- Configuration Sliders -->
                 <div class="settings-card">
                     <h3>CONFIGURATION</h3>
                     <div class="slider-group">
-                        <label>Max Speed: <span id="speed-val">100</span>%</label>
-                        <input type="range" id="max-speed" min="0" max="100" value="100">
-                    </div>
-                    <div class="slider-group">
-                        <label>Max Turn: <span id="turn-val">100</span>%</label>
-                        <input type="range" id="max-turn" min="0" max="100" value="100">
+                        <label>Max Speed: <span id="speed-val">20</span>%</label>
+                        <input type="range" id="max-speed" min="0" max="100" value="20">
                     </div>
                 </div>
 
             </div>
 
             <div class="footer">
-                <p>SYSTEM ONLINE</p>
+                <p>JAGER AUTONOMOUS SYSTEM</p>
             </div>
         </aside>
 
-        <!-- Map Container -->
-        <main class="map-wrapper">
+        <!-- ═══════════════════════════════════════
+             MAP / AUTONOMOUS VIEW
+        ════════════════════════════════════════ -->
+        <main class="map-wrapper" id="map-view">
             <div id="map"></div>
             <div class="overlay-loader hidden" id="loader">
                 <div class="spinner"></div>
                 <span>COMPUTING TRAJECTORY...</span>
             </div>
 
-            <!-- HUD Overlay -->
+            <!-- HUD Overlay (top right, over map) -->
             <div class="hud-overlay">
                 <div class="hud-item">
                     <span class="hud-label">SPEED</span>
                     <span class="hud-value" id="hud-speed">0 <small>km/h</small></span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">HEADING</span>
+                    <span class="hud-value" id="hud-heading">--</span>
                 </div>
                 <div class="hud-item">
                     <span class="hud-label">LATITUDE</span>
@@ -141,13 +219,60 @@
                 </div>
             </div>
         </main>
+
+        <!-- ═══════════════════════════════════════
+             MANUAL VIEW (FULL SCREEN OVERLAY)
+        ════════════════════════════════════════ -->
+        <main class="manual-wrapper hidden" id="manual-view">
+            <!-- Back to Auto Button -->
+            <button id="btn-back-auto" class="secondary-btn"
+                style="position: absolute; top: 20px; left: 20px; z-index: 10001; background: rgba(0,0,0,0.7); border: 1px solid var(--glass-border);">
+                ◀ BACK TO AUTO
+            </button>
+
+            <!-- HUD Overlay inside manual view -->
+            <div class="hud-overlay manual-hud">
+                <div class="hud-item">
+                    <span class="hud-label">SPEED</span>
+                    <span class="hud-value" id="manual-hud-speed">0 <small>km/h</small></span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">HEADING</span>
+                    <span class="hud-value" id="manual-hud-heading">--</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">LATITUDE</span>
+                    <span class="hud-value" id="manual-hud-lat">--</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">LONGITUDE</span>
+                    <span class="hud-value" id="manual-hud-lng">--</span>
+                </div>
+            </div>
+
+            <div class="manual-console">
+                <!-- Left: Steer -->
+                <div class="manual-col manual-left">
+                    <div class="steer-zone-large" id="joystick-zone">
+                        <div class="zone-label">STEER</div>
+                    </div>
+                </div>
+                <!-- Right: Drive -->
+                <div class="manual-col manual-right">
+                    <button id="btn-forward" class="drive-btn-large">▲<br>FWD</button>
+                    <button id="btn-backward" class="drive-btn-large">▼<br>REV</button>
+                </div>
+            </div>
+        </main>
+
     </div>
 
     <!-- Leaflet JS -->
     <script src="{{ url_for('static', filename='vendor/leaflet.js') }}"></script>
 
-    <!-- Custom JS -->
+    <!-- Dashboard Script (this module's own static folder) -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+
 </body>
 
 </html>

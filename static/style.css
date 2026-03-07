@@ -5,7 +5,6 @@
     --accent-hover: #00c8d4;
     --text-primary: #ffffff;
     --text-secondary: #e0e0e0;
-    /* Lighter for better visibility */
     --glass-border: rgba(0, 242, 255, 0.15);
     --font-main: 'Outfit', sans-serif;
     --font-display: 'Orbitron', sans-serif;
@@ -19,11 +18,9 @@ body.light-theme {
     --bg-dark: #f0f2f5;
     --sidebar-bg: rgba(255, 255, 255, 0.95);
     --accent-color: #007bff;
-    /* Blue for light mode */
     --accent-hover: #0056b3;
     --text-primary: #1a1a1a;
     --text-secondary: #333333;
-    /* Darker for better visibility */
     --glass-border: rgba(0, 0, 0, 0.1);
     --glass: rgba(0, 0, 0, 0.05);
 }
@@ -43,6 +40,53 @@ body {
     width: 100vw;
 }
 
+/* Force landscape orientation hint */
+.rotate-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 99999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-color);
+    font-family: var(--font-display);
+    text-align: center;
+    gap: 1rem;
+}
+
+.rotate-overlay .rotate-icon {
+    font-size: 4rem;
+    animation: rotateHint 2s ease-in-out infinite;
+}
+
+.rotate-overlay p {
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+}
+
+@keyframes rotateHint {
+
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+
+    50% {
+        transform: rotate(90deg);
+    }
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+    .rotate-overlay {
+        display: flex;
+    }
+}
+
 .app-container {
     display: flex;
     height: 100%;
@@ -52,25 +96,43 @@ body {
 /* Sidebar Styling */
 .sidebar {
     width: 400px;
+    min-width: 320px;
     background: var(--sidebar-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
-    padding: 2rem;
+    padding: 1.5rem;
     z-index: 1000;
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
     overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 2px;
 }
 
 .logo h1 {
     font-family: var(--font-display);
-    font-size: 2rem;
+    font-size: 1.6rem;
     font-weight: 700;
     letter-spacing: 2px;
     color: var(--text-primary);
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     text-transform: uppercase;
     text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
@@ -81,8 +143,7 @@ body {
     align-items: center;
 }
 
-/* From Uiverse.io by EddyBel */
-/* The switch - the box around the slider */
+/* Theme Toggle Switch */
 .switch {
     font-size: 17px;
     position: relative;
@@ -113,14 +174,12 @@ body {
         radial-gradient(at 55% 24%, hsla(138, 60%, 62%, 1) 0px, transparent 50%);
 }
 
-/* Hide default HTML checkbox */
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
 
-/* The slider */
 .slider {
     position: absolute;
     cursor: pointer;
@@ -142,8 +201,7 @@ body {
     bottom: 0.35em;
     transition: .4s;
     border-radius: 50%;
-    box-shadow: rgba(0, 0, 0, 0.17) 0px -10px 10px 0px inset,
-        rgba(0, 0, 0, 0.09) 0px -1px 15px -8px;
+    box-shadow: rgba(0, 0, 0, 0.17) 0px -10px 10px 0px inset, rgba(0, 0, 0, 0.09) 0px -1px 15px -8px;
     background-color: #ff99fd;
     background-image: radial-gradient(at 81% 39%, hsla(327, 79%, 79%, 1) 0px, transparent 50%),
         radial-gradient(at 11% 72%, hsla(264, 64%, 79%, 1) 0px, transparent 50%),
@@ -178,7 +236,7 @@ body {
 .mode-selector {
     display: flex;
     gap: 10px;
-    margin-bottom: 2rem;
+    margin-bottom: 1.2rem;
     background: var(--glass);
     padding: 5px;
     border-radius: 12px;
@@ -207,25 +265,27 @@ body {
 }
 
 .controls-wrapper {
-    flex: 1;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.2rem;
 }
 
 /* Cards */
 .status-card,
 .action-card,
 .settings-card,
-.control-section {
+.control-section,
+.sensor-card {
     background: var(--glass);
     border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 1.5rem;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
 }
 
 .control-section h3,
-.settings-card h3 {
+.settings-card h3,
+.sensor-card h3 {
     font-family: var(--font-display);
     font-size: 0.8rem;
     color: var(--text-secondary);
@@ -258,6 +318,59 @@ body {
 .accent-text {
     color: var(--accent-color);
     text-shadow: 0 0 5px rgba(0, 242, 255, 0.4);
+}
+
+/* Sensor Grid */
+.sensor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+.sensor-item {
+    background: rgba(0, 242, 255, 0.04);
+    border: 1px solid rgba(0, 242, 255, 0.08);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+}
+
+.sensor-item .s-label {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+}
+
+.sensor-item .s-val {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-top: 2px;
+}
+
+.sensor-item.full {
+    grid-column: 1 / -1;
+}
+
+.sensor-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--warning);
+    margin-right: 5px;
+    transition: background 0.3s;
+}
+
+.sensor-dot.ok {
+    background: var(--success);
+    box-shadow: 0 0 5px var(--success);
+}
+
+.sensor-dot.err {
+    background: var(--danger);
 }
 
 /* Base Buttons */
@@ -329,28 +442,29 @@ body {
     color: var(--text-primary);
 }
 
-/* Split Manual Controls (New Layout) */
+/* Manual Controls */
 .split-controls {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-around;
-    gap: 1rem;
-    height: 160px;
-    /* Constrain height to keep sidebar tidy */
+    justify-content: center;
+    gap: 1.5rem;
+    min-height: 150px;
 }
 
-/* Steering Zone */
 .steer-zone {
-    width: 140px;
-    height: 140px;
+    width: 130px;
+    height: 130px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 50%;
-    border: 1px solid var(--glass-border);
+    border: 2px solid var(--glass-border);
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .zone-label {
@@ -364,7 +478,6 @@ body {
     font-family: var(--font-display);
 }
 
-/* Drive Buttons */
 .drive-zone {
     display: flex;
     flex-direction: column;
@@ -396,9 +509,7 @@ body {
     box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
 }
 
-/* Restore Joystick Zone CSS for safety (if ID reused) */
 #joystick-zone {
-    /* Nipple.js populates this. Position relative needed */
     position: relative;
 }
 
@@ -441,7 +552,6 @@ input[type=range]::-webkit-slider-thumb {
     box-shadow: 0 0 10px var(--accent-color);
 }
 
-/* Visibility */
 .hidden {
     display: none !important;
 }
@@ -477,7 +587,7 @@ input[type=range]::-webkit-slider-thumb {
     padding: 10px 15px;
     border-radius: 8px;
     border-left: 3px solid var(--accent-color);
-    min-width: 140px;
+    min-width: 160px;
 }
 
 .hud-label {
@@ -518,9 +628,336 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 .footer {
-    margin-top: auto;
+    margin-top: 1rem;
     font-size: 0.7rem;
     color: #444;
     text-align: center;
     letter-spacing: 3px;
+    flex-shrink: 0;
+}
+
+/* Light theme overrides */
+body.light-theme .hud-item {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+body.light-theme .hud-value {
+    color: #1a1a1a;
+}
+
+body.light-theme .sensor-item {
+    background: rgba(0, 123, 255, 0.04);
+    border-color: rgba(0, 123, 255, 0.1);
+}
+
+body.light-theme .sensor-item .s-val {
+    color: var(--accent-color);
+}
+
+body.light-theme input[type=range] {
+    background: #ccc;
+}
+
+/* Manual Fullscreen View */
+.manual-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background: #000;
+    /* Deep black for manual focus */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: radial-gradient(circle at center, #111 0%, #000 100%);
+}
+
+.manual-console {
+    width: 100%;
+    max-width: 1400px;
+    /* Let it stretch wider */
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 4rem;
+}
+
+.manual-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.manual-left {
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.manual-right {
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+}
+
+.steer-zone-large {
+    width: 40vh;
+    height: 40vh;
+    min-width: 250px;
+    min-height: 250px;
+    max-width: 400px;
+    max-height: 400px;
+    background: rgba(0, 242, 255, 0.05);
+    border-radius: 50%;
+    border: 3px solid var(--glass-border);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    box-shadow: 0 0 50px rgba(0, 242, 255, 0.1) inset;
+}
+
+.steer-zone-large .zone-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.2rem;
+    color: var(--glass-border);
+    pointer-events: none;
+    font-family: var(--font-display);
+    letter-spacing: 5px;
+}
+
+.drive-btn-large {
+    width: 180px;
+    height: 120px;
+    background: rgba(0, 242, 255, 0.05);
+    border: 2px solid var(--glass-border);
+    color: var(--accent-color);
+    border-radius: 16px;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.drive-btn-large:active {
+    background: var(--accent-color);
+    color: #000;
+    transform: scale(0.95);
+    box-shadow: 0 0 30px rgba(0, 242, 255, 0.5);
+}
+
+/* Ensure HUD overlays manual mode neatly */
+.manual-hud {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+    right: auto;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--glass-border);
+    padding: 10px;
+    border-radius: 12px;
+}
+
+.manual-hud .hud-item {
+    min-width: 120px;
+    border-left: none;
+    border-right: 1px solid var(--glass-border);
+    background: transparent;
+    padding: 5px 15px;
+}
+
+.manual-hud .hud-item:last-child {
+    border-right: none;
+}
+
+#joystick-zone {
+    position: relative;
+}
+
+@media (max-height: 700px) {
+    .sidebar {
+        padding: 1rem;
+    }
+
+    .logo h1 {
+        font-size: 1.3rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .mode-selector {
+        margin-bottom: 0.8rem;
+    }
+
+    .controls-wrapper {
+        gap: 0.8rem;
+    }
+
+    .status-card,
+    .action-card,
+    .settings-card,
+    .control-section,
+    .sensor-card {
+        padding: 0.8rem;
+    }
+
+    .split-controls {
+        min-height: 120px;
+    }
+
+    .steer-zone {
+        width: 110px;
+        height: 110px;
+    }
+
+    .drive-btn {
+        width: 70px;
+        height: 50px;
+        font-size: 0.7rem;
+    }
+
+    .primary-btn,
+    .travel-btn,
+    .stop-btn,
+    .secondary-btn {
+        padding: 0.7rem;
+        font-size: 0.75rem;
+    }
+
+    .slider-group {
+        margin-bottom: 0.8rem;
+    }
+}
+
+@media (max-height: 500px) {
+    .sidebar {
+        width: 300px;
+        min-width: 260px;
+        padding: 0.6rem 0.8rem;
+    }
+
+    .logo h1 {
+        font-size: 1.1rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .switch {
+        font-size: 12px;
+    }
+
+    .mode-selector {
+        margin-bottom: 0.5rem;
+        padding: 3px;
+    }
+
+    .mode-btn {
+        padding: 6px;
+        font-size: 0.6rem;
+    }
+
+    .controls-wrapper {
+        gap: 0.5rem;
+    }
+
+    .status-card,
+    .action-card,
+    .settings-card,
+    .control-section,
+    .sensor-card {
+        padding: 0.5rem 0.6rem;
+        border-radius: 8px;
+    }
+
+    .status-row {
+        font-size: 0.75rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .control-section h3,
+    .settings-card h3,
+    .sensor-card h3 {
+        font-size: 0.65rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .split-controls {
+        min-height: 100px;
+        gap: 0.8rem;
+    }
+
+    .steer-zone {
+        width: 90px;
+        height: 90px;
+    }
+
+    .drive-btn {
+        width: 60px;
+        height: 42px;
+        font-size: 0.6rem;
+    }
+
+    .primary-btn,
+    .travel-btn,
+    .stop-btn,
+    .secondary-btn {
+        padding: 0.5rem;
+        font-size: 0.65rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .slider-group {
+        margin-bottom: 0.6rem;
+    }
+
+    .instruction {
+        font-size: 0.65rem;
+        margin-top: 0.4rem;
+    }
+
+    .hud-item {
+        padding: 6px 10px;
+        min-width: 100px;
+    }
+
+    .hud-label {
+        font-size: 0.6rem;
+    }
+
+    .hud-value {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+    .sidebar {
+        width: 280px;
+        min-width: 240px;
+        padding: 0.6rem 0.8rem;
+    }
+
+    .logo h1 {
+        font-size: 1rem;
+    }
 }

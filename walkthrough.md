@@ -107,6 +107,16 @@ sudo reboot
 
 ---
 
+### Completed Features: Dashboard V2 Specification
+- **Manual Mode Fullscreen Overlay**: Restructured the layout so that when switching to manual mode, the map and sidebars are completely hidden (`display: none`). Instead, an immersive fullscreen console appears with the steering joystick on the left, forward/reverse drive buttons on the right, and a floating HUD.
+- **Autonomous Navigation Buttons**: Replaced the "Start Engine" toggle with a full suite of navigation controls: `Calculate Path`, `Start Travel`, `Pause`, `Continue`, `Emergency Stop`, and `Reset Route`.
+- **Compass Heading UI**: Utilizing the QMC5883L magnetometer, the HUD now tracks string-based heading directions (e.g. `N`, `NE`, `SW`) in addition to raw degrees.
+- **Backend API Expansions**: Updates to `web_server.py` to support `POST /api/pause`, `POST /api/continue`, and `POST /api/stop` to manage the underlying `_mission` state correctly.
+- **Simplified Configuration**: Removed the redundant Max Turn slider; steering is solely handled via joystick limits inside the `_servo` domain.
+
+![Autonomous Controls (Unstyled Backend Test)](file:///C:/Users/HP/.gemini/antigravity/brain/853ec68b-ff65-4c29-8980-426793bf13a6/autonomous_view_top_1772762194767.png)
+![Manual Console Setup](file:///C:/Users/HP/.gemini/antigravity/brain/853ec68b-ff65-4c29-8980-426793bf13a6/click_feedback_1772762212682.png)
+
 ## 3. Running the Autonomous Vehicle
 
 ```bash

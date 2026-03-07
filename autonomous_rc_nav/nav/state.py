@@ -1,0 +1,13 @@
+from enum import Enum
+
+
+class NavPhase(str, Enum):
+    BOOT = "BOOT"
+    CALIBRATING = "CALIBRATING"
+    READY = "READY"
+    DEST_SET = "DEST_SET"
+    DEST_INVALID = "DEST_INVALID"
+    CALCULATING = "CALCULATING"
+    PATH_READY = "PATH_READY"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
