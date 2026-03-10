@@ -111,6 +111,8 @@
         const socket = io()
 
         /* GLOBAL SETTINGS */
+        
+        let enableManualReset = true; // SET TO TRUE -> every refresh randomly starts 59-65. FALSE -> continues from saved value
 
         let chargingSpeed = 0.005    // % increase per cycle (edit this)
         let updateInterval = 200     // ms
@@ -128,7 +130,10 @@
 
         let saved = localStorage.getItem("batteryPercent")
 
-        if (saved !== null) {
+        if (enableManualReset) {
+            // Overwrite storage completely with fresh random number on every refresh
+            localStorage.setItem("batteryPercent", batteryPercent)
+        } else if (saved !== null) {
             // Standard load
             batteryPercent = parseFloat(saved)
         } else {
