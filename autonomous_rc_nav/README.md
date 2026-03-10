@@ -47,3 +47,10 @@ Open http://127.0.0.1:5050 in a browser.
 
 - OSRM routing uses the public demo endpoint and falls back to a generated straight-line path when routing is unavailable.
 - The dashboard keeps the visual style of the supplied Mission Control reference while using a Flask backend instead of a fully local simulation.
+
+
+cd /home/pi/my-projects/Jager_Map_integration
+git stash 
+git pull origin main
+cd /home/pi/my-projects/Jager_Map_integration/autonomous_rc_nav
+python main.py

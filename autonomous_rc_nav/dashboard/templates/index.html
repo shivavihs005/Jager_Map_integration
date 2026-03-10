@@ -558,7 +558,11 @@ setInterval(function() {
 }, updateInterval);
 
 function updateBatteryUI() {
-  document.getElementById("percent").innerText = batteryPercent.toFixed(1) + "%";
+  if (charging) {
+    document.getElementById("percent").innerHTML = batteryPercent.toFixed(1) + "% <span style='color:var(--g); font-size:12px; margin-left:8px;'>⚡ CHARGING</span>";
+  } else {
+    document.getElementById("percent").innerText = batteryPercent.toFixed(1) + "%";
+  }
   let width = (batteryPercent / 100) * 50; 
   let color = 'var(--red)';
   if (batteryPercent > 45) color = 'var(--amber)';
