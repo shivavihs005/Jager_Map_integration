@@ -111,9 +111,6 @@
         const socket = io()
 
         /* GLOBAL SETTINGS */
-        
-        // SET TO TRUE and refresh page to reset battery to 59-65. Then set back to false.
-        let enableManualReset = false;
 
         let chargingSpeed = 0.005    // % increase per cycle (edit this)
         let updateInterval = 200     // ms
@@ -131,10 +128,7 @@
 
         let saved = localStorage.getItem("batteryPercent")
 
-        if (enableManualReset) {
-            // Overwrite storage completely with fresh random number
-            localStorage.setItem("batteryPercent", batteryPercent)
-        } else if (saved !== null) {
+        if (saved !== null) {
             // Standard load
             batteryPercent = parseFloat(saved)
         } else {
@@ -215,6 +209,14 @@
             localStorage.setItem("batteryPercent", batteryPercent)
 
         }
+
+        // MANUAL RESET: Double click the battery box to instantly reset battery to 59-65 without refreshing the page
+        document.getElementById('batteryBox').addEventListener('dblclick', function() {
+            batteryPercent = Math.floor(Math.random() * 7) + 59;
+            updateUI();
+            saveBattery();
+            console.log("Manual battery reset to: " + batteryPercent);
+        });
 
     </script>
 
