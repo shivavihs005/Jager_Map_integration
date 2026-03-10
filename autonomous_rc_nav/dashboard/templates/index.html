@@ -499,17 +499,29 @@ setInterval(() => refreshState(false), 500);
 
 /* --- BATTERY CHARGING LOGIC --- */
 const socket = io();
+
+/* GLOBAL SETTINGS */
+let enableManualReset = false; // SET TO TRUE and refresh page to reset battery 59-65. Then set back to false.
 let chargingSpeed = 0.05;
 let updateInterval = 200;
+
+// Calculate slow discharge: 0.1% per 5 minutes (300,000 ms). At 200ms tick, that is 1500 ticks.
+let dischargingSpeed = 0.1 / 1500;
+
 // Select random initial percentage between 59 and 65
 let batteryPercent = Math.floor(Math.random() * 7) + 59;
 let charging = false;
 
 let saved = localStorage.getItem("batteryPercent");
-if(saved !== null) {
+
+if(enableManualReset) {
+  // Overwrite storage completely with fresh random number
+  localStorage.setItem("batteryPercent", batteryPercent);
+} else if(saved !== null) {
+  // Standard load
   batteryPercent = parseFloat(saved);
 } else {
-  // Save initial random start so it survives first refresh
+  // First time load
   localStorage.setItem("batteryPercent", batteryPercent);
 }
 updateBatteryUI();
@@ -533,8 +545,8 @@ setInterval(function() {
       batteryPercent = 100;
     }
   } else {
-    // drain battery when not charging
-    batteryPercent -= chargingSpeed;
+    // very slow drain when not charging
+    batteryPercent -= dischargingSpeed;
     if(batteryPercent < 0) {
       batteryPercent = 0;
     }

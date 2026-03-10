@@ -111,9 +111,15 @@
         const socket = io()
 
         /* GLOBAL SETTINGS */
+        
+        // SET TO TRUE and refresh page to reset battery to 59-65. Then set back to false.
+        let enableManualReset = false;
 
         let chargingSpeed = 0.005    // % increase per cycle (edit this)
         let updateInterval = 200     // ms
+
+        // Calculate slow discharge: 0.1% per 5 minutes (300,000 ms). At 200ms tick, that is 1500 ticks.
+        let dischargingSpeed = 0.1 / 1500;
 
         /* BATTERY STATE */
 
@@ -125,9 +131,14 @@
 
         let saved = localStorage.getItem("batteryPercent")
 
-        if (saved !== null) {
+        if (enableManualReset) {
+            // Overwrite storage completely with fresh random number
+            localStorage.setItem("batteryPercent", batteryPercent)
+        } else if (saved !== null) {
+            // Standard load
             batteryPercent = parseFloat(saved)
         } else {
+            // First time load
             localStorage.setItem("batteryPercent", batteryPercent)
         }
 
@@ -166,8 +177,8 @@
 
             } else {
 
-                // discharging when not actively charging
-                batteryPercent -= chargingSpeed
+                // very slow discharging when not actively charging
+                batteryPercent -= dischargingSpeed
 
                 if (batteryPercent < 0) {
                     batteryPercent = 0
