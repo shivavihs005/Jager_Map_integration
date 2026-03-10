@@ -6,6 +6,7 @@
 <title>RC-NAV-01 Mission Control</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -89,6 +90,18 @@ html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--
 @keyframes ring-out{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.8);opacity:0}}
 .cm-ring{position:absolute;top:-4px;left:-4px;width:22px;height:22px;border-radius:50%;border:2px solid var(--g);animation:ring-out 1.6s ease-out infinite}
 .cm-dot{width:14px;height:14px;border-radius:50%;background:var(--g);border:2.5px solid white;box-shadow:0 0 0 2px var(--g),0 0 12px rgba(0,255,65,.5);position:relative;z-index:1}
+
+/* Battery UI */
+#batteryBox{position:absolute;bottom:20px;left:20px;z-index:1000;background:rgba(5,10,5,.88);border:1px solid var(--border-b);padding:10px 14px;display:flex;align-items:center;gap:12px;backdrop-filter:blur(6px);border-radius:2px}
+.loader{box-sizing:border-box;position:relative;display:block;width:60px;height:22px;border:2px solid var(--dim);border-radius:3px;color:var(--text)}
+.loader::after,.loader::before{content:"";display:block;box-sizing:border-box;position:absolute;height:12px;background:currentColor;top:3px}
+.loader::before{right:-5px;border-radius:2px;width:4px;background:var(--dim)}
+.loader.charging::after{width:1px;left:3px;animation:full 2s ease-in-out infinite}
+.loader.static::after{width:var(--battery-width, 1px);left:3px;background-color:var(--battery-color, var(--red))}
+@keyframes full{20%{background-color:var(--red)}45%{background-color:var(--amber)}100%{width:50px;background-color:var(--g)}}
+#percent{font-family:var(--disp);font-size:16px;color:var(--g);font-weight:700}
+.bat-lbl{font-size:9px;color:var(--dim);letter-spacing:1px;margin-right:4px}
+
 @media (max-width: 980px){.dashboard{flex-direction:column}.left{width:100%;min-width:0;height:55vh}.right{height:45vh}}
 </style>
 </head>
@@ -184,6 +197,12 @@ html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--
     <div id="map"></div>
     <div class="ov-tl" id="ov-coords">LAT - | LON -</div>
     <div class="ov-hint" id="ov-hint">Click CALIBRATE to initialize the system</div>
+    
+    <div id="batteryBox">
+      <span class="bat-lbl">SYS.BAT</span>
+      <div class="loader static" id="chargeAnim"></div>
+      <div id="percent">60%</div>
+    </div>
   </div>
 </div>
 
@@ -477,6 +496,61 @@ initMap();
 drawCompass(0);
 refreshState(true);
 setInterval(() => refreshState(false), 500);
+
+/* --- BATTERY CHARGING LOGIC --- */
+const socket = io();
+let chargingSpeed = 0.05;
+let updateInterval = 200;
+let batteryPercent = 60;
+let charging = false;
+
+let saved = localStorage.getItem("batteryPercent");
+if(saved) {
+  batteryPercent = parseFloat(saved);
+}
+updateBatteryUI();
+
+socket.on("charging", function(data) {
+  if(data.status === "on") {
+    charging = true;
+    document.getElementById('chargeAnim').classList.add('charging');
+    document.getElementById('chargeAnim').classList.remove('static');
+  } else {
+    charging = false;
+    document.getElementById('chargeAnim').classList.remove('charging');
+    document.getElementById('chargeAnim').classList.add('static');
+    saveBattery();
+    updateBatteryUI();
+  }
+});
+
+setInterval(function() {
+  if(charging) {
+    batteryPercent += chargingSpeed;
+    if(batteryPercent > 100) {
+      batteryPercent = 100;
+    }
+    updateBatteryUI();
+  }
+}, updateInterval);
+
+function updateBatteryUI() {
+  document.getElementById("percent").innerText = batteryPercent.toFixed(1) + "%";
+  let width = (batteryPercent / 100) * 50; 
+  let color = 'var(--red)';
+  if (batteryPercent > 45) color = 'var(--amber)';
+  if (batteryPercent > 80) color = 'var(--g)';
+  
+  const anim = document.getElementById('chargeAnim');
+  if (anim) {
+    anim.style.setProperty('--battery-width', width + 'px');
+    anim.style.setProperty('--battery-color', color);
+  }
+}
+
+function saveBattery() {
+  localStorage.setItem("batteryPercent", batteryPercent);
+}
 </script>
 </body>
 </html>
