@@ -506,8 +506,11 @@ let batteryPercent = Math.floor(Math.random() * 7) + 59;
 let charging = false;
 
 let saved = localStorage.getItem("batteryPercent");
-if(saved) {
+if(saved !== null) {
   batteryPercent = parseFloat(saved);
+} else {
+  // Save initial random start so it survives first refresh
+  localStorage.setItem("batteryPercent", batteryPercent);
 }
 updateBatteryUI();
 
@@ -520,8 +523,6 @@ socket.on("charging", function(data) {
     charging = false;
     document.getElementById('chargeAnim').classList.remove('charging');
     document.getElementById('chargeAnim').classList.add('static');
-    saveBattery();
-    updateBatteryUI();
   }
 });
 
@@ -531,8 +532,16 @@ setInterval(function() {
     if(batteryPercent > 100) {
       batteryPercent = 100;
     }
-    updateBatteryUI();
+  } else {
+    // drain battery when not charging
+    batteryPercent -= chargingSpeed;
+    if(batteryPercent < 0) {
+      batteryPercent = 0;
+    }
   }
+  
+  updateBatteryUI();
+  saveBattery(); // save state on every tick so refresh never resets to old values
 }, updateInterval);
 
 function updateBatteryUI() {

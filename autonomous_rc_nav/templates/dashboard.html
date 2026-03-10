@@ -117,8 +117,10 @@ let charging = false
 
 let saved = localStorage.getItem("batteryPercent")
 
-if(saved){
+if(saved !== null){
 batteryPercent = parseFloat(saved)
+} else {
+localStorage.setItem("batteryPercent", batteryPercent)
 }
 
 updateUI()
@@ -138,8 +140,6 @@ charging = false
 document.getElementById('chargeAnim').classList.remove('charging');
 document.getElementById('chargeAnim').classList.add('static');
 
-saveBattery()
-updateUI() // ensure static bar correctly represents saved state
 }
 
 })
@@ -156,9 +156,19 @@ if(batteryPercent > 100){
 batteryPercent = 100
 }
 
-updateUI()
+} else {
+
+// discharging when not actively charging
+batteryPercent -= chargingSpeed
+
+if(batteryPercent < 0){
+batteryPercent = 0
+}
 
 }
+
+updateUI()
+saveBattery()
 
 }, updateInterval)
 
