@@ -501,7 +501,8 @@ setInterval(() => refreshState(false), 500);
 const socket = io();
 let chargingSpeed = 0.05;
 let updateInterval = 200;
-let batteryPercent = 60;
+// Select random initial percentage between 59 and 65
+let batteryPercent = Math.floor(Math.random() * 7) + 59;
 let charging = false;
 
 let saved = localStorage.getItem("batteryPercent");

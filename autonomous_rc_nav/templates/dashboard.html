@@ -109,7 +109,8 @@ let updateInterval = 200     // ms
 
 /* BATTERY STATE */
 
-let batteryPercent = 60
+// Select random initial percentage between 59 and 65
+let batteryPercent = Math.floor(Math.random() * 7) + 59;
 let charging = false
 
 /* LOAD SAVED VALUE */

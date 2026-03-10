@@ -6,7 +6,7 @@ import time
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-coil_detect = DigitalInputDevice(17)
+coil_detect = DigitalInputDevice(18)
 
 @app.route("/")
 def index():
