@@ -1,6 +1,6 @@
 """
 Camera stream via FFmpeg MJPEG pipe.
-ffplay /dev/video0 confirmed working — uses same ffmpeg backend.
+Camera confirmed: yuyv422, 320x240, 15fps on /dev/video0
 """
 import subprocess
 import threading
@@ -15,8 +15,6 @@ class CameraStream:
     def __init__(self):
         self.is_connected = False
         self.failed_frames = 0
-        self._proc = None
-        self._lock = threading.Lock()
 
     def get_health(self):
         if self.is_connected and self.failed_frames < 5:
@@ -26,14 +24,17 @@ class CameraStream:
         return "OFFLINE"
 
     def test_connection(self):
-        """Quick check for /api/calibrate diagnostic."""
+        """Quick pipe test for /api/calibrate."""
         try:
             result = subprocess.run(
-                ["ffprobe", "-v", "error", "-f", "v4l2", "-i", self.DEVICE,
-                 "-show_entries", "stream=width,height", "-of", "csv=p=0"],
-                capture_output=True, timeout=3
+                ["ffmpeg", "-loglevel", "error",
+                 "-f", "v4l2", "-i", self.DEVICE,
+                 "-frames:v", "1", "-f", "mjpeg", "-"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,  # CRITICAL: never pipe stderr
+                timeout=5
             )
-            if result.returncode == 0:
+            if result.returncode == 0 and len(result.stdout) > 100:
                 return "PASS"
             return "FAIL (NO SIGNAL)"
         except Exception as e:
@@ -41,77 +42,89 @@ class CameraStream:
 
     def generate_mjpeg_stream(self):
         """
-        Yields multipart MJPEG frames for Flask Response.
-        Parses raw ffmpeg MJPEG stdout by JPEG SOI/EOI markers.
+        Endlessly yields MJPEG frames for Flask streaming.
+        Restarts ffmpeg automatically on failure.
         """
         while True:
             cmd = [
                 "ffmpeg",
-                "-loglevel", "error",
-                "-f",         "v4l2",
-                "-framerate", str(self.FPS),
-                "-video_size", f"{self.WIDTH}x{self.HEIGHT}",
-                "-i",         self.DEVICE,
-                "-vf",        f"scale={self.WIDTH}:{self.HEIGHT}",
-                "-f",         "mjpeg",
-                "-q:v",       "5",
+                "-loglevel",    "error",
+                "-f",           "v4l2",
+                "-input_format","yuyv422",     # Exact format the camera outputs
+                "-framerate",   str(self.FPS),
+                "-video_size",  f"{self.WIDTH}x{self.HEIGHT}",
+                "-i",           self.DEVICE,
+                "-f",           "mjpeg",       # Output MJPEG frames
+                "-q:v",         "5",           # JPEG quality (2=best, 31=worst)
                 "-"
             ]
 
-            print(f"[CAMERA] Launching: {' '.join(cmd)}")
+            print(f"[CAMERA] Launching stream...")
             try:
                 proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,  # CRITICAL: never pipe stderr or ffmpeg deadlocks
                     bufsize=0
                 )
             except FileNotFoundError:
-                print("[CAMERA] ffmpeg not found! Run: sudo apt install ffmpeg")
+                print("[CAMERA] ERROR: ffmpeg not found! Run: sudo apt install ffmpeg")
                 self.is_connected = False
                 time.sleep(5)
                 continue
 
             self.is_connected = True
             self.failed_frames = 0
+            print("[CAMERA] Stream started.")
+
             buf = b""
-            consecutive_empty = 0
+            empty_reads = 0
 
-            while True:
-                chunk = proc.stdout.read(4096)
-                if not chunk:
-                    consecutive_empty += 1
-                    if consecutive_empty > 10:
-                        print("[CAMERA] ffmpeg stdout dry — restarting...")
-                        break
-                    time.sleep(0.05)
-                    continue
-
-                consecutive_empty = 0
-                buf += chunk
-
-                # Extract all complete JPEG frames in the buffer
+            try:
                 while True:
-                    start = buf.find(b"\xff\xd8")  # JPEG SOI
-                    end   = buf.find(b"\xff\xd9")  # JPEG EOI
+                    chunk = proc.stdout.read(8192)
 
-                    if start == -1 or end == -1 or end <= start:
-                        break
+                    if not chunk:
+                        empty_reads += 1
+                        if empty_reads > 20:
+                            print("[CAMERA] stdout empty — restarting ffmpeg...")
+                            break
+                        time.sleep(0.05)
+                        continue
 
-                    frame = buf[start : end + 2]
-                    buf   = buf[end + 2:]
+                    empty_reads = 0
+                    buf += chunk
 
-                    self.failed_frames = 0
-                    self.is_connected  = True
+                    # Extract all complete JPEG frames from buffer
+                    while True:
+                        soi = buf.find(b"\xff\xd8")  # JPEG Start Of Image
+                        eoi = buf.find(b"\xff\xd9")  # JPEG End Of Image
 
-                    yield (b"--frame\r\n"
-                           b"Content-Type: image/jpeg\r\n\r\n"
-                           + frame + b"\r\n\r\n")
+                        if soi == -1 or eoi == -1 or eoi < soi:
+                            break
 
-            # ffmpeg died — log stderr and retry
-            err_out = proc.stderr.read().decode(errors="replace")
-            print(f"[CAMERA] ffmpeg exited. stderr: {err_out[:300]}")
-            proc.kill()
+                        frame   = buf[soi : eoi + 2]
+                        buf     = buf[eoi + 2:]
+
+                        self.is_connected  = True
+                        self.failed_frames = 0
+
+                        yield (b"--frame\r\n"
+                               b"Content-Type: image/jpeg\r\n\r\n"
+                               + frame + b"\r\n\r\n")
+
+            except GeneratorExit:
+                print("[CAMERA] Client disconnected.")
+                proc.kill()
+                return
+            except Exception as e:
+                print(f"[CAMERA] Stream error: {e}")
+            finally:
+                proc.kill()
+                proc.wait()
+
+            # ffmpeg died — wait and retry
             self.is_connected = False
             self.failed_frames += 1
-            time.sleep(2)   # Brief pause before reconnect attempt
+            print(f"[CAMERA] Restarting in 2s... (fail #{self.failed_frames})")
+            time.sleep(2)
