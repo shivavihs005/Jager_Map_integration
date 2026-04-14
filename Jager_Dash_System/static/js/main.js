@@ -41,11 +41,16 @@ const kfLat = new KalmanFilter(0.001, 0.00001);
 const kfLon = new KalmanFilter(0.001, 0.00001);
 
 function updateSpeed(val) {
-    maxSpeed = val;
+    maxSpeed = parseInt(val);
     if (document.getElementById('speed-val-out')) document.getElementById('speed-val-out').innerText = val;
     if (document.getElementById('speed-val-in')) document.getElementById('speed-val-in').innerText = val;
     if (document.getElementById('speed-val-man')) document.getElementById('speed-val-man').innerText = val;
-    console.log("MOCK API [SPEED]:", val, "%");
+    
+    fetch('/api/speed', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ speed: maxSpeed })
+    }).catch(err => console.warn('Speed API err:', err));
 }
 
 // View switching logic
@@ -53,7 +58,6 @@ function switchView(viewId) {
     document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
     document.getElementById(viewId).classList.add('active');
     
-    // Reset specific contexts
     clearInterval(updateInterval);
     
     if (viewId === 'map-view' || viewId === 'outdoor-view') {
@@ -62,10 +66,16 @@ function switchView(viewId) {
     } else if (viewId === 'manual-view') {
         initJoystick();
         startTelemetryLoop();
-        // Set mode via API (Mock)
-        console.log("MOCK API [START]: MANUAL");
+        fetch('/api/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mode: 'MANUAL' })
+        }).catch(err => console.warn('Mode API err:', err));
     } else if (viewId === 'indoor-view') {
         startTelemetryLoop();
+    } else if (viewId === 'home-view') {
+        // Stop everything when going back home
+        fetch('/api/stop', { method: 'POST' }).catch(() => {});
     }
 }
 
@@ -148,7 +158,15 @@ function initJoystick() {
 }
 
 function sendDualJoystickData(accel, steer) {
-    console.log(`MOCK API [JOYSTICK] Accel (Motor): ${Math.round(accel)} | Steer (Servo): ${Math.round(steer)}`);
+    // accel: -100 (reverse) to +100 (forward), steer: -100 (left) to +100 (right)
+    const y = Math.round(accel);
+    const x = Math.round(steer);
+    
+    fetch('/api/control', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ x: x, y: y })
+    }).catch(err => console.warn('Joystick API err:', err));
 }
 
 // API Controls

@@ -65,6 +65,15 @@ def manual_control():
     state_machine.manual_joystick(x, y)
     return jsonify({"status": "success", "x": x, "y": y})
 
+@app.route('/api/speed', methods=['POST'])
+def set_speed():
+    """Sets the max speed from the UI slider."""
+    data = request.json
+    speed = int(data.get("speed", 50))
+    speed = max(0, min(100, speed))
+    state_machine.max_speed = speed
+    return jsonify({"status": "success", "speed": speed})
+
 @app.route('/api/sensors', methods=['GET'])
 def get_sensors():
     data = state_machine.sensors.get_all()
