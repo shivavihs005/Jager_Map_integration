@@ -236,3 +236,11 @@ sensors/ → state_estimator (100 Hz)
 | GPS no fix | Need outdoor clear sky; check serial: `sudo cat /dev/serial0` |
 | Dashboard blank | Ensure port 5001 isn't blocked by firewall |
 
+
+
+
+cd /home/pi/my-projects/Jager_Map_integration
+git stash
+git pull origin main
+cd /home/pi/my-projects/Jager_Map_integration/Jager_Dash_System
+python app.py
