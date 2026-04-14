@@ -3,35 +3,86 @@ import numpy as np
 import time
 
 class CameraStream:
-    """Mock camera stream generator for Windows."""
+    """Hardware accelerated V4L2 Camera Stream + Indoor Brightness logic."""
     def __init__(self):
-        print("[MOCK CAMERA] Initializing video stream...")
-        self.width = 640
-        self.height = 480
+        self.width = 320
+        self.height = 240
+        self.cap = None
+        self.is_connected = False
         
+        print(f"[CAMERA] Attempting hardware init on /dev/video0...")
+        try:
+            # We attempt V4L2 first mapping to Pi natively
+            self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
+            
+            if not self.cap.isOpened():
+                # Fallback purely for mock execution on Windows
+                self.cap = cv2.VideoCapture(0)
+            
+            if self.cap.isOpened():
+                self.is_connected = True
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                self.cap.set(cv2.CAP_PROP_FPS, 15)
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                print("[CAMERA] Hardware hook SUCCESS.")
+            else:
+                print("[CAMERA] Failed to establish video hook.")
+        except Exception as e:
+            print(f"[CAMERA] Error parsing video source: {e}")
+
+    def test_connection(self):
+        """API hook for system diagnostics"""
+        if self.is_connected and self.cap.isOpened():
+            ret, _ = self.cap.read()
+            return "PASS" if ret else "FAIL (NO FRAME)"
+        return "FAIL (DISCONNECTED)"
+
     def get_frame(self):
-        """Generate a simulated camera frame for the dashboard."""
-        # Create a black image
-        frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        
-        # Add some random noise to simulate 'brightness comparison'
-        noise = np.random.randint(0, 50, (self.height, self.width, 3), dtype=np.uint8)
-        frame = cv2.add(frame, noise)
-        
-        # Add HUD overlay text
-        cv2.putText(frame, f"MOCK CAMERA FEED", (50, 50), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 159), 2)
-                    
-        cv2.putText(frame, f"TIME: {time.strftime('%H:%M:%S')}", (50, 90), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 240, 255), 2)
-                    
-        # Simulate obstacle detection area
-        cv2.rectangle(frame, (100, 150), (540, 400), (159, 0, 255), 2)
-        
-        # Encode to JPEG
-        ret, jpeg = cv2.imencode('.jpg', frame)
+        """Standard MJPEG frame generation"""
+        if not self.is_connected:
+            return self.get_mock_frame()
+            
+        ret, frame = self.cap.read()
         if not ret:
-            return None
+            return self.get_mock_frame()
+            
+        # Optional: Add HUD overlay here if needed
+        cv2.putText(frame, "JAGER_DASH: INDOOR CAM", (10, 20), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1)
+        
+        ret, jpeg = cv2.imencode('.jpg', frame)
+        return jpeg.tobytes() if ret else None
+
+    def get_brightness_direction(self):
+        """
+        Parses camera frame. Left half vs Right half brightness sum.
+        Returns a steering PWM pulse (680 left, 1460 right) towards brightest path.
+        """
+        if not self.is_connected:
+            return 1060 # Center mock
+
+        ret, frame = self.cap.read()
+        if not ret:
+            return 1060
+            
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        half = self.width // 2
+        
+        left_light = np.sum(gray[:, :half])
+        right_light = np.sum(gray[:, half:])
+        
+        # Super rudimentary logic map: steer into light
+        if left_light > right_light * 1.1: 
+            return 800  # Steer Left
+        elif right_light > left_light * 1.1:
+            return 1300 # Steer Right
+        else:
+            return 1060 # Straight
+
+    def get_mock_frame(self):
+        frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        cv2.putText(frame, "NO CAMERA FEED", (50, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        ret, jpeg = cv2.imencode('.jpg', frame)
         return jpeg.tobytes()
 
     def generate_mjpeg_stream(self):
@@ -41,4 +92,4 @@ class CameraStream:
             if frame is not None:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
-            time.sleep(0.1) # Simulate ~10 FPS
+            time.sleep(1/15.0)

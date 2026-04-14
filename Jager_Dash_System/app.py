@@ -28,15 +28,19 @@ def start_system():
 def calibrate_sensors():
     """Trigger backend hardware diagnostics"""
     result = state_machine.sensors.calibrate()
-    # In a full diagnostic this would return a dict of tests. 
-    # For now it returns a PASS dict.
+    
+    # Active Camera Test
+    cam_status = camera.test_connection()
+    
+    # In a full diagnostic this would query every component actively.
     test_results = {
         "status": "success",
         "tests": {
             "I2C_BUS_1": "PASS",
             "SONAR_SDM15": "PASS",
             "IMU_MPU6050": "PASS",
-            "GPS_UART": "PASS (LOCKED)"
+            "GPS_UART": "PASS (LOCKED)",
+            "USB_CAMERA": cam_status
         }
     }
     return jsonify(test_results)
