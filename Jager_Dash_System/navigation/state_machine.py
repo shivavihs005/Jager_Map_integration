@@ -1,104 +1,173 @@
-import threading
+import math
 import time
 import requests
-
-from hardware.motor_controller import MotorController
+import threading
 from hardware.sensors import SensorsData
+from hardware.motor_controller import MotorController
+
+# --- Helper Math Functions ---
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371000 # radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi/2.0)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(delta_lambda/2.0)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+def calculate_bearing(lat1, lon1, lat2, lon2):
+    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    x = math.sin(dlon) * math.cos(lat2)
+    y = math.cos(lat1)*math.sin(lat2) - math.sin(lat1)*math.cos(lat2)*math.cos(dlon)
+    return (math.degrees(math.atan2(x, y)) + 360) % 360
+
+def normalize_angle(angle):
+    while angle > 180: angle -= 360
+    while angle < -180: angle += 360
+    return angle
+
+def angle_between(bearing1, bearing2):
+    return normalize_angle(bearing2 - bearing1)
 
 class StateMachine:
     def __init__(self):
-        self.mode = "STOP" # OUTDOOR, INDOOR, MANUAL, STOP
-        self.running = False
-        self.thread = None
-        
-        self.motor = MotorController()
+        self.mode = "STOP"
         self.sensors = SensorsData()
+        self.motor = MotorController()
         
         self.waypoints = []
-        self.current_waypoint_idx = 0
+        self.current_wp_index = 0
         
+        # Navigation tuning
+        self.Kp = 8.0 # Steering proportional gain
+        self.MAX_STEER = 380 # Max offset from center (1460-1060=400 max)
+        
+        self.nav_thread = None
+        self.running = False
+
+    def set_mode(self, mode):
+        self.mode = mode
+        print(f"[STATE MACHINE] Mode set to {self.mode}")
+
     def start(self):
-        if not self.running:
-            self.running = True
-            self.thread = threading.Thread(target=self._run_loop, daemon=True)
-            self.thread.start()
-            print("[STATE MACHINE] Loop started.")
+        self.running = True
+        self.motor.set_state("STOP")
+        if self.mode == "OUTDOOR":
+            self.nav_thread = threading.Thread(target=self.outdoor_main_loop, daemon=True)
+            self.nav_thread.start()
+        elif self.mode == "INDOOR":
+            self.nav_thread = threading.Thread(target=self.indoor_main_loop, daemon=True)
+            self.nav_thread.start()
 
     def stop(self):
         self.running = False
         self.mode = "STOP"
         self.motor.stop()
-        if self.thread:
-            self.thread.join()
-            print("[STATE MACHINE] Loop stopped.")
-
-    def set_mode(self, mode):
-        self.mode = mode
-        if mode == "STOP":
-            self.motor.stop()
-        print(f"[STATE MACHINE] Mode set to: {mode}")
+        if self.nav_thread:
+            self.nav_thread.join(timeout=1.0)
+            self.nav_thread = None
 
     def fetch_osrm_route(self, lat1, lon1, lat2, lon2):
-        """Fetch A* route from OSRM given start and end."""
-        # Note: In real world, use your actual OSMR server IP or the public one.
-        url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson"
+        print(f"[NAV] Fetching OSRM Route from {lat1},{lon1} to {lat2},{lon2}")
+        url = f"https://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson"
         try:
-            r = requests.get(url, timeout=5)
-            data = r.json()
-            if data['code'] == 'Ok':
-                coords = data['routes'][0]['geometry']['coordinates']
-                # Convert coords to waypoints [[lat, lon], ...]
-                self.waypoints = [[c[1], c[0]] for c in coords]
-                self.current_waypoint_idx = 0
+            res = requests.get(url, timeout=5).json()
+            if res.get("code") == "Ok":
+                coords = res["routes"][0]["geometry"]["coordinates"]
+                self.generate_waypoint_states(coords)
                 return self.waypoints
-            else:
-                print("[STATE MACHINE] OSRM Route Failed")
-                return None
         except Exception as e:
-            print(f"[STATE MACHINE] Route fetch error: {e}")
-            return None
+            print(f"[NAV] OSRM Fetch Failed: {e}")
+        return []
+
+    def generate_waypoint_states(self, coords):
+        """Converts raw coordinates into Radius-Based Zones with Action labels"""
+        self.waypoints = []
+        for i in range(len(coords)):
+            action = "STRAIGHT"
+            if i > 0 and i < len(coords)-1:
+                b1 = calculate_bearing(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0])
+                b2 = calculate_bearing(coords[i][1], coords[i][0], coords[i+1][1], coords[i+1][0])
+                angle = angle_between(b1, b2)
+                if angle > 15:
+                    action = "RIGHT"
+                elif angle < -15:
+                    action = "LEFT"
+            
+            # Master Prompt WP Structure: Radius = 3.0 meters
+            self.waypoints.append({
+                "lat": coords[i][1],
+                "lon": coords[i][0],
+                "action": action,
+                "radius": 3.0 
+            })
+        self.current_wp_index = 0
+        print(f"[NAV] Generated {len(self.waypoints)} Radius-Based Waypoints.")
+
+    def outdoor_main_loop(self):
+        """The core continuous autonomous loop"""
+        print("[NAV] Entering Continuous OUTDOOR Loop...")
+        while self.running and self.mode == "OUTDOOR":
+            gps = self.sensors.get_filtered_gps()
+            heading = self.sensors.get_heading()
+            obstacle_dist = self.sensors.read_sdm15()
+
+            # Priority 1: Obstacle Avoidance
+            if obstacle_dist < 40.0:
+                print(f"[NAV] OBSTACLE DETECTED at {obstacle_dist}cm! Engaging Avoidance.")
+                self.motor.avoid_obstacle()
+                continue
+                
+            # Priority 2: Navigation Target
+            if not self.waypoints or self.current_wp_index >= len(self.waypoints):
+                print("[NAV] Destination Reached or No Waypoints. Halting.")
+                self.stop()
+                break
+
+            current_wp = self.waypoints[self.current_wp_index]
+            dist = haversine(gps["lat"], gps["lon"], current_wp["lat"], current_wp["lon"])
+
+            # 🔹 RANGE-BASED TRIGGER
+            if dist < current_wp["radius"]:
+                print(f"[NAV] Entered WP Zone {self.current_wp_index} (Dist: {dist:.1f}m). Triggering Action: {current_wp['action']}")
+                if self.current_wp_index < len(self.waypoints) - 1:
+                    next_wp = self.waypoints[self.current_wp_index + 1]
+                    target_bearing = calculate_bearing(gps["lat"], gps["lon"], next_wp["lat"], next_wp["lon"])
+                else:
+                    target_bearing = calculate_bearing(gps["lat"], gps["lon"], current_wp["lat"], current_wp["lon"])
+                self.current_wp_index += 1
+            else:
+                target_bearing = calculate_bearing(gps["lat"], gps["lon"], current_wp["lat"], current_wp["lon"])
+
+            # Error computation
+            error = normalize_angle(target_bearing - heading)
+            
+            # Continuous Steering logic: pd control
+            steering = self.Kp * error
+            steering = max(min(steering, self.MAX_STEER), -self.MAX_STEER) # Clamp
+            
+            pulse = int(self.motor.SERVO_CENTER + steering)
+            self.motor.move_forward(pulse)
+            
+            # Loop delay for stable CPU tracking (20Hz)
+            time.sleep(0.05)
+
+    def indoor_main_loop(self):
+        """Simple mockup for indoor camera direction logic"""
+        from hardware.camera import CameraStream
+        cam = CameraStream()
+        while self.running and self.mode == "INDOOR":
+            obstacle_dist = self.sensors.read_sdm15()
+            if obstacle_dist < 40.0:
+                 self.motor.avoid_obstacle()
+            else:
+                 # Simplified bright-seeking logic mock wrapper
+                 steering_pulse = cam.get_brightness_direction()
+                 self.motor.move_forward(steering_pulse)
+            time.sleep(0.1)
 
     def manual_joystick(self, x, y):
-        """Called by API when in manual mode."""
         if self.mode == "MANUAL":
             self.motor.execute_joystick(x, y)
-
-    def _run_loop(self):
-        """Main logical execution loop running continuously."""
-        while self.running:
-            sensor_data = self.sensors.get_all()
-            dist = sensor_data["distance_cm"]
-            
-            if self.mode == "OUTDOOR":
-                # Obstacle detection priority
-                if dist < 40:
-                    print(f"[OUTDOOR] OBSTACLE! {dist}cm -> STOP")
-                    self.motor.stop()
-                else:
-                    # Mock outdoor logic
-                    # If we have waypoints, drive logic
-                    if self.waypoints and self.current_waypoint_idx < len(self.waypoints):
-                        self.motor.set_state("FORWARD", 60)
-                        # Simulate reaching a waypoint every 2 seconds
-                        time.sleep(2)
-                        self.current_waypoint_idx += 1
-                        print(f"[OUTDOOR] Reached WP {self.current_waypoint_idx}/{len(self.waypoints)}")
-                    else:
-                        print("[OUTDOOR] No waypoints or arrived at destination.")
-                        self.mode = "STOP"
-                        self.motor.stop()
-                        
-            elif self.mode == "INDOOR":
-                # Indoor camera/sensor logic
-                if dist < 30:
-                    print(f"[INDOOR] Object near -> Avoidance")
-                    self.motor.set_state("REVERSE", 50)
-                    time.sleep(1)
-                    self.motor.set_state("TURN_LEFT", 60)
-                    time.sleep(0.5)
-                else:
-                    self.motor.set_state("FORWARD", 50)
-            
-            # If MANUAL, joystick handles state directly, no loop logic needed here.
-
-            time.sleep(0.1) # Loop rate ~10Hz

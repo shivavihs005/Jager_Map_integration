@@ -9,7 +9,7 @@
     <!-- Google Fonts for Typography -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="../static/css/style.css">
 </head>
 <body>
     <!-- Full-screen Background Overlay elements -->
@@ -32,13 +32,21 @@
         <!-- OUTDOOR AUTONOMOUS SCREEN -->
         <section id="outdoor-view" class="view split-view fade-in">
             <div class="left-panel">
+                <h1 class="mini-brand glitch" data-text="JAGER_DASH">JAGER_DASH</h1>
                 <button class="back-btn" onclick="switchView('home-view')">◄ BACK</button>
                 <h2>OUTDOOR MODE</h2>
                 
                 <div class="controls">
-                    <button class="neon-btn neon-blue block" id="btn-calc-path">CALCULATE PATH</button>
+                    <button class="neon-btn neon-blue block" id="btn-calc-path" onclick="calculatePath()">CALCULATE PATH</button>
+                    <button class="neon-btn neon-purple block" onclick="calibrateSensors('out-term')">CALIBRATE SENSORS</button>
                     <button class="neon-btn neon-green block" id="btn-start-outdoor" onclick="startSystem('OUTDOOR')">START</button>
                     <button class="neon-btn neon-red block" onclick="stopSystem()">STOP / RESET</button>
+                    
+                    <!-- Speed Control -->
+                    <div class="speed-control">
+                        <label>MAX SPEED: <span id="speed-val-out">50</span>%</label>
+                        <input type="range" class="neon-slider" min="0" max="100" value="50" oninput="updateSpeed(this.value)">
+                    </div>
                 </div>
 
                 <div class="status-panel">
@@ -48,21 +56,43 @@
                     <p>Next WP: <span id="out-wp">-</span></p>
                     <p>Distance: <span id="out-dist">0</span>cm</p>
                 </div>
+
+                <!-- Pi Terminal -->
+                <div class="terminal-panel">
+                    <div class="terminal-header">PI_CONNECTION // LOGS</div>
+                    <div id="out-term" class="terminal-content"></div>
+                </div>
             </div>
-            <div class="right-panel">
-                <div id="map-container"></div>
+            <div class="right-panel" style="overflow: hidden;">
+                <button class="neon-btn neon-purple pos-abs" style="right: 20px; left: auto; z-index: 1000;" id="btn-map-theme" onclick="toggleMapMode()">MAP: DARK MODE</button>
+                
+                <!-- Compass UI -->
+                <div id="compass-icon" class="pos-abs" style="top: 80px; right: 20px; z-index: 1000; width: 45px; height: 45px; border: 2px solid var(--neon-blue); border-radius: 50%; background: rgba(2,2,2,0.8); display: flex; align-items: center; justify-content: center; color: var(--neon-blue); font-weight: bold; font-family: 'Courier New', Courier, monospace; font-size: 1.2rem; transition: transform 1.5s ease; box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);">
+                    N
+                    <div style="position:absolute; top:-8px; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid var(--neon-red);"></div>
+                </div>
+
+                <div id="map-container" class="dark-mode" style="transition: transform 1.5s ease; width: 100%; height: 100%;"></div>
             </div>
         </section>
 
         <!-- INDOOR AUTONOMOUS SCREEN -->
         <section id="indoor-view" class="view split-view fade-in">
             <div class="left-panel">
+                <h1 class="mini-brand glitch" data-text="JAGER_DASH">JAGER_DASH</h1>
                 <button class="back-btn" onclick="switchView('home-view')">◄ BACK</button>
                 <h2>INDOOR MODE</h2>
                 
                 <div class="controls">
+                    <button class="neon-btn neon-purple block" onclick="calibrateSensors('in-term')">CALIBRATE SENSORS</button>
                     <button class="neon-btn neon-green block" onclick="startSystem('INDOOR')">START AUTO</button>
                     <button class="neon-btn neon-red block" onclick="stopSystem()">STOP / REVERT</button>
+                    
+                    <!-- Speed Control -->
+                    <div class="speed-control">
+                        <label>MAX SPEED: <span id="speed-val-in">50</span>%</label>
+                        <input type="range" class="neon-slider" min="0" max="100" value="50" oninput="updateSpeed(this.value)">
+                    </div>
                 </div>
 
                 <div class="status-panel">
@@ -70,10 +100,16 @@
                     <p>Sonar (SDM15): <span id="indoor-dist" class="highlight-green">0cm</span></p>
                     <p>State: <span id="indoor-state">STOP</span></p>
                 </div>
+                
+                <!-- Pi Terminal -->
+                <div class="terminal-panel">
+                    <div class="terminal-header">PI_CONNECTION // LOGS</div>
+                    <div id="in-term" class="terminal-content"></div>
+                </div>
             </div>
             <div class="right-panel">
                 <div class="camera-wrapper glass-panel">
-                    <img id="video-stream-indoor" src="{{ url_for('video_feed') }}" alt="Camera Stream">
+                    <img id="video-stream-indoor" src="https://via.placeholder.com/800x600/111111/00ff9f?text=MOCK+CAMERA+FEED" alt="Camera Stream">
                     <div class="scanline"></div>
                 </div>
             </div>
@@ -82,15 +118,32 @@
         <!-- MANUAL CONTROL SCREEN -->
         <section id="manual-view" class="view fade-in">
             <button class="back-btn pos-abs" onclick="switchView('home-view')">◄ BACK</button>
-            <h2 class="center-title neon-text-purple">MANUAL OVERRIDE</h2>
+            <h1 class="mini-brand glitch" data-text="JAGER_DASH" style="margin-top: 20px; margin-bottom: 0;">JAGER_DASH</h1>
+            <h2 class="center-title neon-text-purple" style="margin-top: 5px;">MANUAL OVERRIDE</h2>
             
             <div class="manual-container">
                 <div class="telemetry-bar">
                     <p>State: <span id="man-state">STOP</span></p>
                     <p>Dist: <span id="man-dist">0</span>cm</p>
                 </div>
-                <!-- Joystick Area -->
-                <div id="joystick-zone"></div>
+                
+                <!-- Speed Control -->
+                <div class="speed-control center-slider">
+                    <label>MAX SPEED: <span id="speed-val-man">50</span>%</label>
+                    <input type="range" class="neon-slider" min="0" max="100" value="50" oninput="updateSpeed(this.value)">
+                </div>
+
+                <!-- Dual Joysticks Area -->
+                <div class="dual-joysticks">
+                    <div class="joy-col">
+                        <h4 class="neon-text-blue">ACCEL (MOTORS)</h4>
+                        <div id="joystick-accel" class="joy-zone"></div>
+                    </div>
+                    <div class="joy-col">
+                        <h4 class="neon-text-green">STEERING (SERVO)</h4>
+                        <div id="joystick-steer" class="joy-zone"></div>
+                    </div>
+                </div>
             </div>
             <div class="controls-overlay">
                  <button class="neon-btn neon-red block" onclick="stopSystem()">EMERGENCY STOP</button>
@@ -102,6 +155,6 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="../static/js/main.js"></script>
 </body>
 </html>
