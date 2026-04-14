@@ -273,6 +273,7 @@ function startTelemetryLoop() {
                 const motor_speed = data.motor_speed || 0;
                 const distance_cm = data.distance_cm || 0;
                 const motor_state = data.motor_state || 'STOP';
+                const camera_health = data.camera_health || 'OFFLINE';
 
                 if (gps && gps.locked) {
                     // Update Map Marker via Kalman 
@@ -306,6 +307,12 @@ function startTelemetryLoop() {
                     document.getElementById('gps-status').innerText = (gps && gps.locked) ? "LOCKED" : "NO FIX";
                     document.getElementById('out-speed').innerText = motor_speed;
                     document.getElementById('out-dist').innerText = distance_cm;
+                    
+                    let camOut = document.getElementById('camera-status-out');
+                    if (camOut) {
+                        camOut.innerText = camera_health;
+                        camOut.style.color = camera_health === 'ONLINE' ? '#00ff9f' : (camera_health === 'RECONNECTING' ? '#ffea00' : '#ff003c');
+                    }
                 }
                 
                 if(document.getElementById('indoor-dist')) {
@@ -316,6 +323,12 @@ function startTelemetryLoop() {
                          document.getElementById('indoor-dist').style.color = '#ff003c';
                     } else {
                          document.getElementById('indoor-dist').style.color = '#00ff9f';
+                    }
+                    
+                    let camIn = document.getElementById('camera-status-in');
+                    if (camIn) {
+                        camIn.innerText = camera_health;
+                        camIn.style.color = camera_health === 'ONLINE' ? '#00ff9f' : (camera_health === 'RECONNECTING' ? '#ffea00' : '#ff003c');
                     }
                 }
                 

@@ -72,6 +72,7 @@ def get_sensors():
     data['mode'] = state_machine.mode
     data['motor_state'] = state_machine.motor.state
     data['motor_speed'] = state_machine.motor.speed
+    data['camera_health'] = camera.get_health()
     return jsonify(data)
 
 @app.route('/api/route', methods=['POST'])

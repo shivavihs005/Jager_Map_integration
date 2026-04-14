@@ -9,14 +9,25 @@ class CameraStream:
         self.height = 240
         self.cap = None
         self.is_connected = False
-        
-        print(f"[CAMERA] Attempting hardware init on /dev/video0...")
+        self.failed_frames = 0
+        self.reconnect()
+
+    def reconnect(self):
+        """Attempts to re-establish the hardware camera stream natively."""
+        print(f"[CAMERA] Attempting hardware init on Auto Backend...")
         try:
-            # Strictly use the validated test code string
-            self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
+            if self.cap:
+                self.cap.release()
+            self.is_connected = False
+            
+            # Most robust auto-negotiation
+            self.cap = cv2.VideoCapture(0)
+            if not self.cap.isOpened():
+                self.cap = cv2.VideoCapture("/dev/video0")
             
             if self.cap.isOpened():
                 self.is_connected = True
+                self.failed_frames = 0
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
                 self.cap.set(cv2.CAP_PROP_FPS, 15)
@@ -26,6 +37,13 @@ class CameraStream:
                 print("[CAMERA] Failed to establish video hook.")
         except Exception as e:
             print(f"[CAMERA] Error parsing video source: {e}")
+
+    def get_health(self):
+        if self.is_connected and self.failed_frames < 10:
+            return "ONLINE"
+        elif self.failed_frames >= 10:
+            return "RECONNECTING"
+        return "OFFLINE"
 
     def test_connection(self):
         """API hook for system diagnostics"""
@@ -37,12 +55,20 @@ class CameraStream:
     def get_frame(self):
         """Standard MJPEG frame generation"""
         if not self.is_connected:
+            self.failed_frames += 1
+            if self.failed_frames > 30: # Attempt reconnect every 2 seconds roughly
+                self.reconnect()
             return self.get_mock_frame()
             
         ret, frame = self.cap.read()
         if not ret:
+            self.failed_frames += 1
+            if self.failed_frames > 30:
+                self.reconnect()
             return self.get_mock_frame()
             
+        self.failed_frames = 0
+        
         # Optional: Add HUD overlay here if needed
         cv2.putText(frame, "JAGER_DASH: INDOOR CAM", (10, 20), cv2.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1)
         
@@ -59,7 +85,10 @@ class CameraStream:
 
         ret, frame = self.cap.read()
         if not ret:
+            self.failed_frames += 1
             return 1060
+            
+        self.failed_frames = 0
             
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         half = self.width // 2
