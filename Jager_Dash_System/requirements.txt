@@ -1,7 +1,7 @@
 Flask==3.0.3
 requests==2.31.0
-opencv-python==4.9.0.80
-numpy==1.26.4
+opencv-python
+numpy
 # Use these for Raspberry Pi hardware
 # RPi.GPIO
 # smbus2
