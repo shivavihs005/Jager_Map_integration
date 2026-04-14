@@ -10,18 +10,10 @@ class CameraStream:
         self.cap = None
         self.is_connected = False
         
-        print(f"[CAMERA] Attempting hardware init on /dev/video0 (index 0)...")
+        print(f"[CAMERA] Attempting hardware init on /dev/video0...")
         try:
-            # Attempt V4L2 mapping natively
-            self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
-            
-            if not self.cap.isOpened():
-                # Fallback to absolute string path just in case
-                self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
-                
-            if not self.cap.isOpened():
-                # Raw fallback
-                self.cap = cv2.VideoCapture(0)
+            # Strictly use the validated test code string
+            self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
             
             if self.cap.isOpened():
                 self.is_connected = True
