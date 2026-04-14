@@ -1,34 +1,46 @@
+"""
+Standalone camera test using ffmpeg pipe (same as ffplay backend).
+Run on Pi: python3 test_camera.py
+Press ESC to quit.
+"""
+import subprocess
+import numpy as np
 import cv2
 
-def init_camera():
-    cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
+WIDTH  = 320
+HEIGHT = 240
+FPS    = 15
+DEVICE = "/dev/video0"
 
-    if not cap.isOpened():
-        print("Camera failed to open")
-        exit()
+cmd = [
+    "ffmpeg",
+    "-loglevel", "quiet",
+    "-f", "v4l2",
+    "-framerate", str(FPS),
+    "-video_size", f"{WIDTH}x{HEIGHT}",
+    "-i", DEVICE,
+    "-f", "rawvideo",
+    "-pix_fmt", "bgr24",
+    "-"
+]
 
-    # Optimize performance
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-    cap.set(cv2.CAP_PROP_FPS, 15)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+print("Starting FFmpeg camera pipe...")
+proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+frame_size = WIDTH * HEIGHT * 3
 
-    return cap
-
-if __name__ == "__main__":
-    cap = init_camera()
-
+try:
     while True:
-        ret, frame = cap.read()
-
-        if not ret:
-            print("Frame not received")
+        raw = proc.stdout.read(frame_size)
+        if len(raw) != frame_size:
+            print("Camera disconnected or frame incomplete.")
             break
 
-        cv2.imshow("Camera", frame)
+        frame = np.frombuffer(raw, dtype=np.uint8).reshape((HEIGHT, WIDTH, 3))
+        cv2.imshow("JAGER_DASH Camera Test (FFmpeg)", frame)
 
-        if cv2.waitKey(1) == 27:
+        if cv2.waitKey(1) == 27:  # ESC
             break
-
-    cap.release()
+finally:
+    proc.kill()
     cv2.destroyAllWindows()
+    print("Camera test done.")
