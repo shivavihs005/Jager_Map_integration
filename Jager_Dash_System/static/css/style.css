@@ -1,0 +1,284 @@
+/* Reset & Tokens */
+:root {
+  --bg-color: #0a0a0a;
+  --neon-blue: #00f0ff;
+  --neon-green: #00ff9f;
+  --neon-purple: #9f00ff;
+  --neon-red: #ff003c;
+  --text-main: #ffffff;
+  --text-muted: #888888;
+  --font-main: 'Orbitron', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Background Cyber Grid Overlay */
+.grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+  z-index: -1;
+}
+
+/* Typography */
+h1.main-title {
+  font-size: 4rem;
+  letter-spacing: 5px;
+  text-shadow: 0 0 10px var(--neon-blue), 0 0 40px var(--neon-blue);
+  margin-bottom: 5px;
+}
+.subtitle {
+  color: var(--neon-purple);
+  letter-spacing: 3px;
+  margin-bottom: 50px;
+}
+
+/* Views and Transitions */
+.view {
+  display: none;
+  width: 100%;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.view.active {
+  display: flex;
+}
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+#home-view {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Split View Layout */
+.split-view {
+  display: flex !important; /* Overriden by .active logic in JS */
+  flex-direction: row;
+}
+
+.left-panel {
+  width: 30%;
+  padding: 20px;
+  background: rgba(10, 10, 10, 0.9);
+  border-right: 2px solid var(--neon-blue);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.right-panel {
+  width: 70%;
+  position: relative;
+}
+
+/* Map */
+#map-container {
+  width: 100%;
+  height: 100%;
+  /* Optional: filter to make map dark */
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* Buttons */
+.neon-btn {
+  background: transparent;
+  border: 2px solid var(--text-main);
+  color: var(--text-main);
+  padding: 15px 30px;
+  font-size: 1.2rem;
+  font-family: var(--font-main);
+  cursor: pointer;
+  border-radius: 5px;
+  margin: 10px;
+  transition: 0.3s;
+  text-transform: uppercase;
+}
+
+.neon-btn.block {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+}
+
+.neon-blue {
+  border-color: var(--neon-blue);
+  color: var(--neon-blue);
+  box-shadow: 0 0 10px inset var(--neon-blue), 0 0 10px var(--neon-blue);
+}
+.neon-blue:hover {
+  background: var(--neon-blue);
+  color: var(--bg-color);
+  box-shadow: 0 0 20px var(--neon-blue);
+}
+
+.neon-green {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  box-shadow: 0 0 10px inset var(--neon-green), 0 0 10px var(--neon-green);
+}
+.neon-green:hover {
+  background: var(--neon-green);
+  color: var(--bg-color);
+  box-shadow: 0 0 20px var(--neon-green);
+}
+
+.neon-purple {
+  border-color: var(--neon-purple);
+  color: var(--neon-purple);
+  box-shadow: 0 0 10px inset var(--neon-purple), 0 0 10px var(--neon-purple);
+}
+.neon-purple:hover {
+  background: var(--neon-purple);
+  color: var(--bg-color);
+  box-shadow: 0 0 20px var(--neon-purple);
+}
+
+.neon-red {
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+  box-shadow: 0 0 10px inset var(--neon-red), 0 0 10px var(--neon-red);
+}
+.neon-red:hover {
+  background: var(--neon-red);
+  color: var(--bg-color);
+  box-shadow: 0 0 20px var(--neon-red);
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 1rem;
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 20px;
+}
+.back-btn:hover {
+  color: var(--neon-blue);
+  text-shadow: 0 0 5px var(--neon-blue);
+}
+
+.pos-abs {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+}
+
+/* Status Panels */
+.status-panel {
+  border: 1px solid var(--neon-purple);
+  padding: 15px;
+  border-radius: 5px;
+  background: rgba(159, 0, 255, 0.05);
+}
+.status-panel h3 {
+  color: var(--neon-purple);
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--neon-purple);
+  padding-bottom: 5px;
+}
+
+.status-good { color: var(--neon-green); }
+.highlight-green { color: var(--neon-green); font-weight: bold;}
+
+/* Camera Wrapper */
+.camera-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.camera-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+  animation: scan 4s linear infinite;
+}
+@keyframes scan {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+/* Manual View */
+#manual-view {
+  flex-direction: column;
+  align-items: center;
+}
+.center-title {
+  margin-top: 20px;
+  font-size: 2rem;
+  text-shadow: 0 0 10px var(--neon-purple);
+}
+.neon-text-purple { color: var(--neon-purple); }
+
+.manual-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  width: 100%;
+}
+
+.telemetry-bar {
+  display: flex;
+  gap: 30px;
+  font-size: 1.5rem;
+  margin-bottom: 50px;
+}
+
+#joystick-zone {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  border: 2px solid rgba(159, 0, 255, 0.3);
+  border-radius: 50%;
+  box-shadow: inset 0 0 20px rgba(159, 0, 255, 0.2);
+}
+
+.controls-overlay {
+  position: absolute;
+  bottom: 30px;
+  width: 300px;
+}
