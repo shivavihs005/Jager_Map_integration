@@ -47,7 +47,7 @@ python3 app.py
 ### 5. Open the Dashboard
 Once the server is running, open your web browser on any device (laptop, phone, tablet) connected to the same Wi-Fi network and navigate to the Pi's local IP address:
 
-**http://<YOUR_PI_IP_ADDRESS>:5000**
+**http://<YOUR_PI_IP_ADDRESS>:5050**
 
 ---
 
