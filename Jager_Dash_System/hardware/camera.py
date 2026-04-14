@@ -10,13 +10,17 @@ class CameraStream:
         self.cap = None
         self.is_connected = False
         
-        print(f"[CAMERA] Attempting hardware init on /dev/video0...")
+        print(f"[CAMERA] Attempting hardware init on /dev/video0 (index 0)...")
         try:
-            # We attempt V4L2 first mapping to Pi natively
-            self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
+            # Attempt V4L2 mapping natively
+            self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
             
             if not self.cap.isOpened():
-                # Fallback purely for mock execution on Windows
+                # Fallback to absolute string path just in case
+                self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
+                
+            if not self.cap.isOpened():
+                # Raw fallback
                 self.cap = cv2.VideoCapture(0)
             
             if self.cap.isOpened():
