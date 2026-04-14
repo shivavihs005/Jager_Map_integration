@@ -13,7 +13,7 @@ class MotorController:
         self.steering_angle = 1060
         
         self.SERVO_LEFT = 680
-        self.SERVO_CENTER = 1060
+        self.SERVO_CENTER = 1090
         self.SERVO_RIGHT = 1460
 
         # BTS7960 Pins
@@ -37,6 +37,11 @@ class MotorController:
                 self.pi.set_mode(self.L_EN, pigpio.OUTPUT)
                 self.pi.write(self.R_EN, 1)
                 self.pi.write(self.L_EN, 1)
+                
+                # Set PWM frequency
+                self.pi.set_PWM_frequency(self.RPWM, 1000)
+                self.pi.set_PWM_frequency(self.LPWM, 1000)
+                
                 self.set_steering(self.SERVO_CENTER)
 
     def set_state(self, state, speed=None):

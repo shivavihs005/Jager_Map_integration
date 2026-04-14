@@ -24,8 +24,12 @@ class SensorsData:
         
         if PI_ENV:
             try:
+                # Initialize devices
                 self.ser = serial.Serial('/dev/serial0', 9600, timeout=1)
                 self.bus = smbus2.SMBus(1)
+                self.bus.write_byte_data(0x68, 0x6B, 0) # Wake MPU6500
+                self.bus.write_byte_data(0x0D, 0x0B, 0x01) # Set/Reset Mag
+                self.bus.write_byte_data(0x0D, 0x09, 0x1D) # Continuous Mag
             except Exception as e:
                 print(f"[SENSORS] Pi Hardware init failed: {e}")
                 self.ser = None
@@ -33,6 +37,9 @@ class SensorsData:
         else:
             self.ser = None
             self.bus = None
+
+        self.prev_heading = None
+        self.heading_alpha = 0.3
 
     def calibrate(self):
         print("[SENSORS] Calibrating systems over I2C/UART...")
@@ -69,11 +76,25 @@ class SensorsData:
     def get_heading(self):
         if PI_ENV and self.bus:
             try:
-                # Mock QMC5883L I2C 0x0D read logic
-                # Normally read registers 0x00 to 0x05 for X,Y,Z
-                x = self.bus.read_word_data(0x0D, 0x00)
-                y = self.bus.read_word_data(0x0D, 0x02)
-                self.heading = (math.atan2(y, x) * 180 / math.pi) % 360
+                data = self.bus.read_i2c_block_data(0x0D, 0x00, 6)
+                x = data[0] | (data[1] << 8)
+                y = data[2] | (data[3] << 8)
+                
+                # Convert to signed
+                if x > 32767: x -= 65536
+                if y > 32767: y -= 65536
+                
+                raw_heading = math.atan2(y, x)
+                raw_heading = math.degrees(raw_heading)
+                if raw_heading < 0: raw_heading += 360
+                
+                # Smoothen
+                if self.prev_heading is None:
+                    self.prev_heading = raw_heading
+                else:
+                    self.prev_heading = self.heading_alpha * raw_heading + (1 - self.heading_alpha) * self.prev_heading
+                
+                self.heading = self.prev_heading
             except Exception:
                 pass
         else:
