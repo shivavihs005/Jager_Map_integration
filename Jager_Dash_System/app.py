@@ -37,8 +37,8 @@ def calibrate_sensors():
         "status": "success",
         "tests": {
             "I2C_BUS_1": "PASS",
-            "SONAR_SDM15": "PASS",
-            "IMU_MPU6050": "PASS",
+            "ENERGY_SDM15": "PASS",
+            "IMU_MPU6500": "PASS",
             "GPS_UART": "PASS (LOCKED)",
             "USB_CAMERA": cam_status
         }
@@ -83,6 +83,10 @@ def get_sensors():
     data['motor_speed'] = state_machine.motor.speed
     data['camera_health'] = camera.get_health()
     return jsonify(data)
+
+@app.route('/api/energy', methods=['GET'])
+def get_energy():
+    return jsonify(state_machine.sensors.energy_meter.get_all_readings())
 
 @app.route('/api/route', methods=['POST'])
 def get_route():

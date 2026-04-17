@@ -11,9 +11,7 @@ Build a Raspberry Pi-based autonomous vehicle system called **Jager_Dash** with:
 
 ---
 
-# 🔌 HARDWARE CONNECTIONS
-
-## 1. GPS — NEO-6M (UART)
+## 1. GPS — NEO-6M (Hardware UART)
 
 * VCC → 3.3V (Pin 1)
 * GND → GND (Pin 6)
@@ -21,6 +19,7 @@ Build a Raspberry Pi-based autonomous vehicle system called **Jager_Dash** with:
 * TX → GPIO15 (RXD)
 
 Device: `/dev/serial0`
+Baud Rate: 9600
 
 ---
 
@@ -65,9 +64,11 @@ Pulse:
 
 ---
 
-## 6. SDM15 Distance Sensor
-
-* Connected via UART/I2C (assume available as `read_distance()` function)
+## 6. SDM15 Energy Meter (Software UART)
+Provides voltage, current, etc. No distance readings.
+* TX (SDM15) → GPIO21 (RX on Pi)
+* RX (SDM15) → GPIO20 (TX on Pi)
+* Baud Rate: 9600
 
 ---
 

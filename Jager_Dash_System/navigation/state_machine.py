@@ -112,7 +112,9 @@ class StateMachine:
         while self.running and self.mode == "OUTDOOR":
             gps = self.sensors.get_filtered_gps()
             heading = self.sensors.get_heading()
-            obstacle_dist = self.sensors.read_sdm15()
+            # obstacle_dist = self.sensors.read_sdm15() # REMOVED: SDM15 is an energy meter
+            # TODO: Integrate dedicated distance sensor for obstacle avoidance
+            obstacle_dist = 999.0 # Mock value
 
             # Priority 1: Obstacle Avoidance
             if obstacle_dist < 40.0:
@@ -159,7 +161,10 @@ class StateMachine:
         from hardware.camera import CameraStream
         cam = CameraStream()
         while self.running and self.mode == "INDOOR":
-            obstacle_dist = self.sensors.read_sdm15()
+            # obstacle_dist = self.sensors.read_sdm15() # REMOVED: SDM15 is an energy meter
+            # TODO: Integrate dedicated distance sensor for obstacle avoidance
+            obstacle_dist = 999.0 # Mock value
+
             if obstacle_dist < 40.0:
                  self.motor.avoid_obstacle()
             else:

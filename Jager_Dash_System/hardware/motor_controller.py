@@ -13,7 +13,7 @@ class MotorController:
         self.steering_angle = 1060
         
         self.SERVO_LEFT = 680
-        self.SERVO_CENTER = 1090
+        self.SERVO_CENTER = 1060
         self.SERVO_RIGHT = 1460
 
         # BTS7960 Pins

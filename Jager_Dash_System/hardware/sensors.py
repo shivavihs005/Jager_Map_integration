@@ -9,6 +9,8 @@ try:
 except ImportError:
     PI_ENV = False
 
+from hardware.sdm15_energy import SDM15EnergyMeter
+
 class SensorsData:
     def __init__(self):
         self.gps_lat = 37.7749
@@ -18,14 +20,17 @@ class SensorsData:
         self.alpha = 0.2  # Simple exponential smoothing factor for GPS
         
         self.heading = 0.0
-        self.distance_cm = 150.0
+        self.energy_meter = SDM15EnergyMeter() # Init the Energy Meter
 
         print(f"[SENSORS] Initializing... Hardware Environment: {'Pi' if PI_ENV else 'Windows Mock'}")
         
         if PI_ENV:
             try:
-                # Initialize devices
+                # Initialize GPS on Hardware UART (/dev/serial0) per spec.
+                # NOTE: Ensure /boot/config.txt has enable_uart=1 and dtoverlay=disable-bt
                 self.ser = serial.Serial('/dev/serial0', 9600, timeout=1)
+                
+                # Init I2C bus for IMU/Compass
                 self.bus = smbus2.SMBus(1)
                 self.bus.write_byte_data(0x68, 0x6B, 0) # Wake MPU6500
                 self.bus.write_byte_data(0x0D, 0x0B, 0x01) # Set/Reset Mag
@@ -102,17 +107,9 @@ class SensorsData:
             
         return self.heading
 
-    def read_sdm15(self):
-        if PI_ENV:
-            # Placeholder for SDM15 distance readout (UART/Pulse)
-            self.distance_cm = 150.0 
-        else:
-            self.distance_cm = random.uniform(50.0, 200.0)
-        return self.distance_cm
-
     def get_all(self):
         return {
             "gps": self.get_filtered_gps(),
             "imu": {"heading": self.get_heading(), "pitch": 0, "roll": 0},
-            "distance_cm": round(self.read_sdm15(), 2)
+            "energy": self.energy_meter.get_all_readings()
         }

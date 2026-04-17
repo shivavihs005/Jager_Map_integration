@@ -67,10 +67,10 @@ git stash && git pull origin main
 ### D. BTS7960 DC Motor Driver
 | Driver Pin | GPIO |
 |------------|------|
-| R_EN | GPIO 23 |
-| L_EN | GPIO 24 |
-| RPWM (Forward) | GPIO 13 |
-| LPWM (Backward) | GPIO 12 |
+| R_EN | GPIO 23 (blue)|
+| L_EN | GPIO 24(orange) |
+| RPWM (Forward) | GPIO 13 (white) |
+| LPWM (Backward) | GPIO 12(violet) |
 
 ### E. Steering Servo (pigpio, hardware PWM)
 | Servo Pin | GPIO |
