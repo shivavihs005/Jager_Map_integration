@@ -10,7 +10,7 @@ except ImportError:
 # Configuration from hardware spec
 SERVO_PIN = 17
 SERVO_MIN = 680   # MAX_LEFT
-SERVO_CENTER = 1090
+SERVO_CENTER = 1040
 SERVO_MAX = 1460  # MAX_RIGHT
 STEP = 10         # Microsecond step per sweep iteration
 DELAY = 0.02      # Delay between steps (seconds)

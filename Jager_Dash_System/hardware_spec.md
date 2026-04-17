@@ -40,7 +40,7 @@ Shared bus for inertial metrics.
 ### B. Steering Control (Servo)
 * **Signal →** GPIO 17
 * **VCC →** External 5V
-* **Pulse Width:** Left = 680 µs, Center = **1060 µs**, Right = 1460 µs
+* **Pulse Width:** Left = 680 µs, Center = **1040 µs**, Right = 1460 µs
 
 ## 5. System Configuration Requirements
 Edit `/boot/config.txt` to properly assign primary UART:

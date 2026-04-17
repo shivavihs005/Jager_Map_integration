@@ -42,7 +42,7 @@ class StateMachine:
         
         # Navigation tuning
         self.Kp = 8.0 # Steering proportional gain
-        self.MAX_STEER = 380 # Max offset from center (1460-1060=400 max)
+        self.MAX_STEER = 400 # Max offset from center (1460-1040=420 max)
         
         self.nav_thread = None
         self.running = False

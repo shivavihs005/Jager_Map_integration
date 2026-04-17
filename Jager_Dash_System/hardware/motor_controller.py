@@ -10,10 +10,10 @@ class MotorController:
     def __init__(self):
         self.state = "STOP"
         self.speed = 0
-        self.steering_angle = 1060
+        self.steering_angle = 1040
         
         self.SERVO_LEFT = 680
-        self.SERVO_CENTER = 1060
+        self.SERVO_CENTER = 1040
         self.SERVO_RIGHT = 1460
 
         # BTS7960 Pins

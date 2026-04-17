@@ -59,7 +59,7 @@ Baud Rate: 9600
 Pulse:
 
 * LEFT = 680 µs
-* CENTER = 1060 µs
+* CENTER = 1040 µs
 * RIGHT = 1460 µs
 
 ---

@@ -79,7 +79,7 @@ git stash && git pull origin main
 | VCC | 5V external / BEC |
 | GND | Common GND |
 
-**Pulse limits:** MAX_LEFT = 680 µs | CENTER = 1060 µs | MAX_RIGHT = 1460 µs
+**Pulse limits:** MAX_LEFT = 680 µs | CENTER = 1040 µs | MAX_RIGHT = 1460 µs
 
 ---
 
@@ -176,7 +176,7 @@ Open the dashboard: **`http://<pi-ip>:5001`**
 | **Click map** | Drop a destination waypoint |
 | **Navigate** | Starts Pure Pursuit autonomous drive |
 | **Abort** | Emergency stop — centers servo |
-| **Servo slider** | Manual pulse override (snaps to 1060) |
+| **Servo slider** | Manual pulse override (snaps to 1040) |
 | **Live heading** | Compass needle rotates with vehicle |
 
 ---
@@ -204,7 +204,7 @@ Then comment them out again for subsequent runs.
 | `PURE_PURSUIT_LOOKAHEAD_M` | 0.5 m | Shorter = tighter, more oscillation |
 | `BASE_SPEED_PCT` | 50% | Cruise motor speed |
 | `WAYPOINT_REACHED_M` | 0.30 m | "Close enough" threshold |
-| `SERVO_CENTER` | 1060 µs | Edit if physical center drifts |
+| `SERVO_CENTER` | 1040 µs | Edit if physical center drifts |
 
 ---
 
