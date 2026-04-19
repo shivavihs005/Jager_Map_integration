@@ -6,3 +6,4 @@ numpy
 # RPi.GPIO
 # smbus2
 # pyserial
+pigpio
