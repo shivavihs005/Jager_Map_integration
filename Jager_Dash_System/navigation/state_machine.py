@@ -112,9 +112,7 @@ class StateMachine:
         while self.running and self.mode == "OUTDOOR":
             gps = self.sensors.get_filtered_gps()
             heading = self.sensors.get_heading()
-            # obstacle_dist = self.sensors.read_sdm15() # REMOVED: SDM15 is an energy meter
-            # TODO: Integrate dedicated distance sensor for obstacle avoidance
-            obstacle_dist = 999.0 # Mock value
+            obstacle_dist = self.sensors.ultrasonic.get_distance()
 
             # Priority 1: Obstacle Avoidance
             if obstacle_dist < 40.0:
@@ -161,9 +159,7 @@ class StateMachine:
         from hardware.camera import CameraStream
         cam = CameraStream()
         while self.running and self.mode == "INDOOR":
-            # obstacle_dist = self.sensors.read_sdm15() # REMOVED: SDM15 is an energy meter
-            # TODO: Integrate dedicated distance sensor for obstacle avoidance
-            obstacle_dist = 999.0 # Mock value
+            obstacle_dist = self.sensors.ultrasonic.get_distance()
 
             if obstacle_dist < 40.0:
                  self.motor.avoid_obstacle()
@@ -175,4 +171,11 @@ class StateMachine:
 
     def manual_joystick(self, x, y):
         if self.mode == "MANUAL":
+            dist = self.sensors.ultrasonic.get_distance()
+            
+            # Prevent moving forward if obstacle is close (under 30cm)
+            if y > 10 and dist < 30.0:
+                print(f"[MANUAL] Obstacle too close ({dist} cm), halting forward thrust!")
+                y = 0  # Force halt on forward speed by setting thrust to 0
+
             self.motor.execute_joystick(x, y)

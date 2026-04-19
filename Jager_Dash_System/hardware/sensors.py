@@ -9,7 +9,7 @@ try:
 except ImportError:
     PI_ENV = False
 
-from hardware.sdm15_energy import SDM15EnergyMeter
+from hardware.ultrasonic_sensor import UltrasonicSensor
 
 class SensorsData:
     def __init__(self):
@@ -20,7 +20,7 @@ class SensorsData:
         self.alpha = 0.2  # Simple exponential smoothing factor for GPS
         
         self.heading = 0.0
-        self.energy_meter = SDM15EnergyMeter() # Init the Energy Meter
+        self.ultrasonic = UltrasonicSensor() # Init Ultrasonic distance sensor
 
         print(f"[SENSORS] Initializing... Hardware Environment: {'Pi' if PI_ENV else 'Windows Mock'}")
         
@@ -111,5 +111,5 @@ class SensorsData:
         return {
             "gps": self.get_filtered_gps(),
             "imu": {"heading": self.get_heading(), "pitch": 0, "roll": 0},
-            "energy": self.energy_meter.get_all_readings()
+            "distance": self.ultrasonic.get_distance()
         }

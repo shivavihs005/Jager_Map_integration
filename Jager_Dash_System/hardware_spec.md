@@ -30,6 +30,13 @@ Shared bus for inertial metrics.
 ### B. QMC5883L Magnetometer (Address: 0x0D)
 * SDA → GPIO 2, SCL → GPIO 3 (3.3V)
 
+## 3.5 Distance Sensing (HC-SR04 Ultrasonic)
+Replaces the LiDAR for indoor obstacle detection.
+* **VCC →** 5V
+* **GND →** GND
+* **TRIG →** GPIO 27 (Output)
+* **ECHO →** GPIO 22 (Input — **⚠️ MUST use a voltage divider to step 5V down to 3.3V**)
+
 ## 4. Actuation
 ### A. Motor Control (BTS7960 Driver)
 * R_EN → GPIO 23

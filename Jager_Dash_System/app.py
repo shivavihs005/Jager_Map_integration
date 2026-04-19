@@ -37,7 +37,7 @@ def calibrate_sensors():
         "status": "success",
         "tests": {
             "I2C_BUS_1": "PASS",
-            "ENERGY_SDM15": "PASS",
+            "ULTRASONIC_HC_SR04": "PASS",
             "IMU_MPU6500": "PASS",
             "GPS_UART": "PASS (LOCKED)",
             "USB_CAMERA": cam_status
@@ -84,9 +84,9 @@ def get_sensors():
     data['camera_health'] = camera.get_health()
     return jsonify(data)
 
-@app.route('/api/energy', methods=['GET'])
-def get_energy():
-    return jsonify(state_machine.sensors.energy_meter.get_all_readings())
+@app.route('/api/distance', methods=['GET'])
+def get_distance():
+    return jsonify({"distance": state_machine.sensors.ultrasonic.get_distance()})
 
 @app.route('/api/route', methods=['POST'])
 def get_route():
