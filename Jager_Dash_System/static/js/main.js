@@ -129,28 +129,15 @@ function initJoystick() {
 
     let currentAccel = 0;
     let currentSteer = 0;
-    let deadmanTimer = null;  // Safety auto-stop timer
-
-    // Deadman's switch: if no joystick move within 400ms, force stop
-    function resetDeadman() {
-        if (deadmanTimer) clearTimeout(deadmanTimer);
-        deadmanTimer = setTimeout(function() {
-            currentAccel = 0;
-            currentSteer = 0;
-            sendDualJoystickData(0, 0);
-        }, 400);
-    }
 
     joystickAccel.on('move', function (evt, data) {
         const distance = data.distance; 
         const angle = data.angle.radian;
         currentAccel = Math.sin(angle) * distance; 
         sendDualJoystickData(currentAccel, currentSteer);
-        resetDeadman();
     });
     joystickAccel.on('end', function () {
         currentAccel = 0;
-        // Send stop multiple times to ensure delivery on flaky mobile connections
         sendDualJoystickData(0, currentSteer);
         setTimeout(function() { sendDualJoystickData(0, currentSteer); }, 50);
         setTimeout(function() { sendDualJoystickData(0, currentSteer); }, 150);
@@ -161,7 +148,6 @@ function initJoystick() {
         const angle = data.angle.radian;
         currentSteer = Math.cos(angle) * distance; 
         sendDualJoystickData(currentAccel, currentSteer);
-        resetDeadman();
     });
     joystickSteer.on('end', function () {
         currentSteer = 0;
