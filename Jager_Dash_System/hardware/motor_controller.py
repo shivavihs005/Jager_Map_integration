@@ -20,8 +20,8 @@ class MotorController:
         # BTS7960 Pins
         self.R_EN = 23
         self.L_EN = 24
-        self.RPWM = 13
-        self.LPWM = 12
+        self.RPWM = 12   # Forward (swapped to match motor wiring)
+        self.LPWM = 13   # Backward (swapped to match motor wiring)
         # Servo
         self.SERVO_PIN = 17
 
@@ -87,9 +87,9 @@ class MotorController:
         """
         Indoor evasion sequence:
         1. Stop motors
-        2. Reverse at 40% for 0.8 seconds
-        3. Turn servo full left or right (alternating)  
-        4. Move forward for 2 seconds
+        2. Reverse slowly at 20% for 1 second
+        3. Turn servo full left or right  
+        4. Move forward gently for 2 seconds
         5. Center servo and resume
         """
         print("[MOTOR] Indoor obstacle evasion triggered!")
@@ -98,12 +98,12 @@ class MotorController:
         self.stop()
         time.sleep(0.3)
         
-        # Step 2: Back up slightly
+        # Step 2: Back up slowly
         self.set_steering(self.SERVO_CENTER)
-        self.set_state("REVERSE", 40)
-        time.sleep(0.8)
+        self.set_state("REVERSE", 20)
+        time.sleep(1.0)
         self.stop()
-        time.sleep(0.2)
+        time.sleep(0.3)
         
         # Step 3: Pick random turn direction
         turn_dir = random.choice([self.SERVO_LEFT, self.SERVO_RIGHT])
@@ -112,8 +112,8 @@ class MotorController:
         self.set_steering(turn_dir)
         time.sleep(0.3)  # Wait for servo to reach position
         
-        # Step 4: Move forward for 2 seconds with turned steering
-        self.set_state("FORWARD", 35)
+        # Step 4: Move forward gently for 2 seconds with turned steering
+        self.set_state("FORWARD", 25)
         time.sleep(2.0)
         
         # Step 5: Center servo
