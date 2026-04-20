@@ -167,50 +167,207 @@ class StateMachine:
             
             # Loop delay for stable CPU tracking (20Hz)
             time.sleep(0.05)
+    # ================================================================
+    #  INDOOR AUTONOMOUS — Robotic Vacuum-Style Navigation
+    # ================================================================
+    #  Architecture:
+    #    1. Sensor Read   → get_averaged_distance() + get_heading()
+    #    2. Perception    → classify_environment()
+    #    3. Decision      → wall-follow / evade / explore
+    #    4. Motion        → heading-corrected drive with PWM ramping
+    # ================================================================
 
     def indoor_main_loop(self):
         """
-        Ultrasonic-only indoor autonomous mode.
-        - On start: ramp speed from 0 to max_speed over 3 seconds.
-        - Continuously move forward at max_speed.
-        - If obstacle < 15cm: execute evasion sequence (back up, turn, drive 2s, center).
-        - Resume forward at max_speed after evasion.
-        """
-        print("[NAV] Entering INDOOR Autonomous Loop (Ultrasonic Only)...")
+        Full indoor autonomous navigation loop.
         
-        # Phase 1: Gradual speed ramp-up
+        Strategy:
+          - Drive forward using heading correction (magnetometer keeps line straight)
+          - Slow down in CAUTION zone (20-30cm)
+          - On FRONT_BLOCKED (<20cm): stop → reverse → LEFT-hand-rule evasion
+          - If LEFT blocked → try RIGHT → alternate until clear
+          - After 6 failed evasion attempts → long reverse (unstuck recovery)
+          - Dead reckoning: track approximate position via heading + time
+        """
+        print("=" * 60)
+        print("[NAV] INDOOR AUTONOMOUS — Initializing...")
+        print("=" * 60)
+
+        # ---- Capture Reference Heading ----
+        # Lock the initial heading as "forward" direction
+        initial_heading = self.sensors.get_heading()
+        target_heading = initial_heading
+        print(f"[NAV] Reference heading locked: {initial_heading:.1f}°")
+
+        # ---- Dead Reckoning State ----
+        travel_time = 0.0  # Approximate seconds of forward motion
+
+        # ---- Evasion State ----
+        last_turn_dir = "LEFT"  # Wall-following: prefer LEFT first
+
+        # ---- Phase 1: Gradual Speed Ramp-up ----
         print(f"[NAV] Ramping speed to {self.max_speed}%...")
         self.motor.ramp_speed(self.max_speed, duration=3.0)
-        
-        # Phase 2: Continuous forward with obstacle check
-        while self.running and self.mode == "INDOOR":
-            obstacle_dist = self.sensors.ultrasonic.get_distance()
 
-            if obstacle_dist < 25.0:
-                # EMERGENCY STOP + EVASION
-                print(f"[NAV] INDOOR OBSTACLE at {obstacle_dist:.1f}cm! Emergency stop + evasion...")
-                self.motor.avoid_obstacle_indoor(self.max_speed)
-                
-                # After evasion, ramp back up to max speed
+        # ---- Phase 2: Main Navigation Loop (20Hz) ----
+        loop_dt = 0.05  # 50ms = 20Hz
+        
+        while self.running and self.mode == "INDOOR":
+            loop_start = time.time()
+
+            # ========== 1. SENSOR READ ==========
+            distance = self.sensors.get_averaged_distance()
+            heading = self.sensors.get_heading()
+
+            # ========== 2. PERCEPTION ==========
+            env = self.sensors.classify_environment(distance)
+
+            # ========== 3. DECISION + MOTION ==========
+
+            if env == "FRONT_BLOCKED":
+                # ---- OBSTACLE — Stop + Smart Evasion ----
+                print(f"[NAV] ⛔ FRONT_BLOCKED at {distance:.1f}cm! Stopping...")
+                self.motor.stop()
+                time.sleep(0.3)
+
+                # Step A: Reverse away from obstacle
+                self.motor.set_state("REVERSE", self.max_speed)
+                time.sleep(1.0)
+                self.motor.stop()
+                time.sleep(0.3)
+
+                # Step B: Smart evasion — LEFT-hand rule with alternation
+                evasion_success = self._evasion_search(last_turn_dir)
+
+                if evasion_success:
+                    # Update target heading to new direction after evasion
+                    target_heading = self.sensors.get_heading()
+                    print(f"[NAV] New target heading: {target_heading:.1f}°")
+
+                # Step C: Re-ramp to cruise speed
                 if self.running and self.mode == "INDOOR":
                     print(f"[NAV] Re-ramping to {self.max_speed}%...")
                     self.motor.ramp_speed(self.max_speed, duration=2.0)
-            elif obstacle_dist < 35.0:
-                # SLOWDOWN ZONE: scale speed from max to 0 as distance 35 → 25
-                scale = (obstacle_dist - 25.0) / 10.0  # 1.0 at 35cm, 0.0 at 25cm
-                slow_speed = int(self.max_speed * scale)
-                slow_speed = max(10, slow_speed)
-                self.motor.set_state("FORWARD", slow_speed)
-            else:
-                # CLEAR — full speed
-                self.motor.set_state("FORWARD", self.max_speed)
-            
-            time.sleep(0.05)  # 20Hz loop
-        
-        # Clean stop on exit
-        self.motor.stop()
-        print("[NAV] INDOOR loop ended.")
 
+            elif env == "CAUTION":
+                # ---- SLOWDOWN ZONE (20-30cm) ----
+                scale = (distance - 20.0) / 10.0  # 1.0 at 30cm → 0.0 at 20cm
+                slow_speed = max(10, int(self.max_speed * scale))
+                
+                # Heading correction even while slowing
+                self._heading_correct(heading, target_heading, slow_speed)
+
+            else:
+                # ---- OPEN PATH — Full speed with heading correction ----
+                self._heading_correct(heading, target_heading, self.max_speed)
+                travel_time += loop_dt  # Dead reckoning accumulation
+
+            # ========== 4. LOOP TIMING ==========
+            elapsed = time.time() - loop_start
+            sleep_time = max(0, loop_dt - elapsed)
+            time.sleep(sleep_time)
+
+        # ---- Clean Exit ----
+        self.motor.stop()
+        print(f"[NAV] INDOOR loop ended. Approx travel time: {travel_time:.1f}s")
+        print("=" * 60)
+
+    # ================================================================
+    #  Heading Correction — Keep Robot Driving Straight
+    # ================================================================
+    def _heading_correct(self, current_heading, target_heading, speed):
+        """
+        Use magnetometer heading to correct steering drift.
+        If the car drifts left of target → steer slightly right, and vice versa.
+        This keeps the robot driving in a straight line without gyro drift.
+        """
+        error = normalize_angle(target_heading - current_heading)
+
+        # Proportional steering correction
+        # Small Kp: gentle correction. Large → aggressive snapping.
+        heading_Kp = 3.0
+        correction = heading_Kp * error
+        correction = max(min(correction, 200), -200)  # Clamp servo offset
+
+        pulse = int(self.motor.SERVO_CENTER + correction)
+        self.motor.set_steering(pulse)
+        self.motor.set_state("FORWARD", speed)
+
+    # ================================================================
+    #  Smart Evasion Search — Wall-Following with Direction Alternation
+    # ================================================================
+    def _evasion_search(self, preferred_dir="LEFT"):
+        """
+        Multi-attempt evasion:
+          1. Try preferred direction (LEFT by default — left-hand rule)
+          2. If still blocked → flip to opposite direction
+          3. Keep alternating until clear (max 6 attempts)
+          4. If stuck after 6 attempts → long reverse (recovery mode)
+          
+        Returns True if clear path found, False if gave up.
+        """
+        # Set initial turn direction
+        if preferred_dir == "LEFT":
+            turn_servo = self.motor.SERVO_LEFT
+            turn_name = "LEFT"
+        else:
+            turn_servo = self.motor.SERVO_RIGHT
+            turn_name = "RIGHT"
+
+        attempt = 0
+
+        while self.running and self.mode == "INDOOR":
+            attempt += 1
+            print(f"[NAV] Evasion #{attempt}: turning {turn_name}...")
+
+            # Turn servo to direction and drive forward for 2s
+            self.motor.set_steering(turn_servo)
+            time.sleep(0.3)
+            self.motor.set_state("FORWARD", self.max_speed)
+            time.sleep(2.0)
+            self.motor.stop()
+            time.sleep(0.2)
+
+            # Center steering and check if path is now clear
+            self.motor.set_steering(self.motor.SERVO_CENTER)
+            time.sleep(0.2)
+            check_dist = self.sensors.get_averaged_distance()
+
+            if check_dist > 30.0:
+                print(f"[NAV] ✅ Path CLEAR at {check_dist:.1f}cm after {turn_name}!")
+                return True
+
+            # Still blocked — back up and try opposite direction
+            print(f"[NAV] ❌ Still blocked at {check_dist:.1f}cm. Flipping direction...")
+            self.motor.stop()
+            time.sleep(0.2)
+            self.motor.set_state("REVERSE", self.max_speed)
+            time.sleep(0.8)
+            self.motor.stop()
+            time.sleep(0.2)
+
+            # Flip direction
+            if turn_servo == self.motor.SERVO_LEFT:
+                turn_servo = self.motor.SERVO_RIGHT
+                turn_name = "RIGHT"
+            else:
+                turn_servo = self.motor.SERVO_LEFT
+                turn_name = "LEFT"
+
+            # Recovery: after 6 failed attempts, long reverse
+            if attempt >= 6:
+                print("[NAV] ⚠️ Stuck! Emergency long reverse...")
+                self.motor.set_state("REVERSE", self.max_speed)
+                time.sleep(3.0)
+                self.motor.stop()
+                time.sleep(0.5)
+                attempt = 0  # Reset and try again
+
+        return False
+
+    # ================================================================
+    #  Manual Mode — Direct Joystick Control (No sensor override)
+    # ================================================================
     def manual_joystick(self, x, y):
         if self.mode == "MANUAL":
             self.motor.execute_joystick(x, y)
