@@ -31,9 +31,11 @@ class MotorController:
         if PI_ENV:
             self.pi = pigpio.pi()
             if not self.pi.connected:
-                print("[MOTOR] pigpio daemon not running! Reverting to mock.")
+                print("[MOTOR] ❌ pigpio daemon not running! Reverting to mock.")
+                print("[MOTOR] ❌ FIX: Run 'sudo pigpiod' BEFORE starting app.py")
                 self.pi = None
             else:
+                print("[MOTOR] ✅ pigpio connected! Hardware control ACTIVE.")
                 self.pi.set_mode(self.R_EN, pigpio.OUTPUT)
                 self.pi.set_mode(self.L_EN, pigpio.OUTPUT)
                 self.pi.write(self.R_EN, 1)
@@ -50,6 +52,8 @@ class MotorController:
         if speed is not None:
             self.speed = max(0, min(100, speed))
             pwm_val = int((self.speed / 100.0) * 255)
+            
+            print(f"[MOTOR] {state} | speed={self.speed}% | pwm={pwm_val} | hw={'YES' if self.pi else 'MOCK'}")
             
             if self.pi:
                 if state == "FORWARD":

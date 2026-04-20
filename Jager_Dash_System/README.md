@@ -60,3 +60,11 @@ Once the server is running, open your web browser on any device (laptop, phone, 
 - `requirements.txt`: Python package dependency list.
 - `templates/`: HTML structures.
 - `static/`: CSS styling (Neon Future themes) and JS logic.
+
+
+cd /home/pi/my-projects/Jager_Map_integration
+git stash
+git pull origin main
+cd /home/pi/my-projects/Jager_Map_integration/Jager_Dash_System
+source venv/bin/activate
+python app.py
