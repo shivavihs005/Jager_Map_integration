@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Jager_Dash</title>
     <!-- Leaflet CSS for Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -53,9 +53,9 @@
                     <h3>TELEMETRY</h3>
                     <p>GPS Lock: <span id="gps-status" class="status-good">LOCKED</span></p>
                     <p>Speed: <span id="out-speed">0</span>%</p>
+                    <p>Heading: <span id="out-heading">0</span>°</p>
                     <p>Next WP: <span id="out-wp">-</span></p>
                     <p>Distance: <span id="out-dist">0</span>cm</p>
-                    <p>Camera: <span id="camera-status-out">OFFLINE</span></p>
                 </div>
 
                 <!-- Pi Terminal -->
@@ -98,9 +98,10 @@
 
                 <div class="status-panel">
                     <h3>SENSOR ARRAY</h3>
-                    <p>Sonar (SDM15): <span id="indoor-dist" class="highlight-green">0cm</span></p>
+                    <p>Ultrasonic (HC-SR04): <span id="indoor-dist" class="highlight-green">0cm</span></p>
                     <p>State: <span id="indoor-state">STOP</span></p>
-                    <p>Camera: <span id="camera-status-in">OFFLINE</span></p>
+                    <p>Speed: <span id="indoor-speed">0</span>%</p>
+                    <p>Heading: <span id="indoor-heading">0</span>°</p>
                 </div>
                 
                 <!-- Pi Terminal -->
@@ -110,9 +111,41 @@
                 </div>
             </div>
             <div class="right-panel">
-                <div class="camera-wrapper glass-panel">
-                    <img id="video-stream-indoor" src="/video" alt="Camera Stream" style="width: 100%; height: 100%; object-fit: cover;">
-                    <div class="scanline"></div>
+                <!-- Ultrasonic Distance Visualization (replaces camera) -->
+                <div class="sonar-viz-container">
+                    <div class="sonar-title">⟐ ULTRASONIC RADAR — HC-SR04</div>
+                    
+                    <div class="sonar-display">
+                        <!-- Animated radar rings -->
+                        <div class="radar-ring ring-1"></div>
+                        <div class="radar-ring ring-2"></div>
+                        <div class="radar-ring ring-3"></div>
+                        
+                        <!-- Center car icon -->
+                        <div class="radar-car">🚙</div>
+                        
+                        <!-- Distance readout -->
+                        <div class="sonar-readout">
+                            <span class="sonar-value" id="sonar-distance-val">0</span>
+                            <span class="sonar-unit">CM</span>
+                        </div>
+                        
+                        <!-- Danger zone indicator -->
+                        <div class="sonar-status-label" id="sonar-status-label">SCANNING</div>
+                    </div>
+                    
+                    <!-- Distance bar -->
+                    <div class="sonar-bar-container">
+                        <div class="sonar-bar-track">
+                            <div class="sonar-bar-fill" id="sonar-bar-fill"></div>
+                            <div class="sonar-bar-danger-zone"></div>
+                        </div>
+                        <div class="sonar-bar-labels">
+                            <span style="color: var(--neon-red);">0cm</span>
+                            <span style="color: #ffeb3b;">15cm</span>
+                            <span style="color: var(--neon-green);">100cm+</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -121,29 +154,40 @@
         <section id="manual-view" class="view fade-in">
 
             <!-- Top-left: Brand + Back -->
-            <div style="position:absolute; top:10px; left:12px; z-index:600; display:flex; align-items:center; gap:12px;">
+            <div class="manual-top-bar">
                 <button class="back-btn" style="position:static;" onclick="switchView('home-view')">&#9668; BACK</button>
                 <span class="mini-brand glitch" data-text="JAGER_DASH" style="font-size:1rem; letter-spacing:3px;">JAGER_DASH</span>
                 <span class="neon-text-purple" style="font-family:'Orbitron',monospace; font-size:0.7rem; letter-spacing:2px;">MANUAL OVERRIDE</span>
             </div>
 
-            <!-- Bottom-left: State + Dist -->
-            <div style="position:absolute; bottom:60px; left:16px; z-index:600; font-family:'Orbitron',monospace; font-size:0.75rem;">
-                <p style="margin:2px 0;">State: <span id="man-state" style="color:var(--neon-green);">STOP</span></p>
-                <p style="margin:2px 0;">Dist: <span id="man-dist" style="color:var(--neon-blue);">0</span>cm</p>
-            </div>
+            <!-- Center layout: Telemetry + Controls -->
+            <div class="manual-main-area">
 
-            <!-- Center layout: Camera + Controls -->
-            <div style="display:flex; flex-direction:column; align-items:center; padding-top:10px;">
-
-                <!-- Bigger Camera Feed centered -->
-                <div style="border:1px solid var(--neon-blue); border-radius:8px; overflow:hidden; box-shadow:0 0 20px rgba(0,240,255,0.5); width:360px;">
-                    <div style="background:rgba(0,0,0,0.8); color:var(--neon-blue); font-family:'Orbitron',monospace; font-size:0.6rem; padding:3px 10px; letter-spacing:2px;">&#9685; CAM LIVE &mdash; JAGER_DASH</div>
-                    <img src="/video" alt="Camera" style="display:block; width:360px; height:200px; object-fit:cover;">
+                <!-- Telemetry panel (replaces camera) -->
+                <div class="manual-telemetry-panel">
+                    <div class="manual-telem-header">⟐ LIVE TELEMETRY — JAGER_DASH</div>
+                    <div class="manual-telem-grid">
+                        <div class="telem-cell">
+                            <div class="telem-label">STATE</div>
+                            <div class="telem-value" id="man-state" style="color:var(--neon-green);">STOP</div>
+                        </div>
+                        <div class="telem-cell">
+                            <div class="telem-label">DISTANCE</div>
+                            <div class="telem-value" id="man-dist" style="color:var(--neon-blue);">0<small>cm</small></div>
+                        </div>
+                        <div class="telem-cell">
+                            <div class="telem-label">HEADING</div>
+                            <div class="telem-value" id="man-heading" style="color:var(--neon-purple);">0<small>°</small></div>
+                        </div>
+                        <div class="telem-cell">
+                            <div class="telem-label">SPEED</div>
+                            <div class="telem-value" id="man-speed" style="color:#ffeb3b;">0<small>%</small></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Speed Control -->
-                <div class="speed-control center-slider" style="margin-top:8px;">
+                <div class="speed-control center-slider">
                     <label>MAX SPEED: <span id="speed-val-man">50</span>%</label>
                     <input type="range" class="neon-slider" min="0" max="100" value="50" oninput="updateSpeed(this.value)">
                 </div>

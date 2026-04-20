@@ -1,4 +1,5 @@
 import time
+import random
 
 try:
     import pigpio
@@ -62,19 +63,79 @@ class MotorController:
                     self.pi.set_PWM_dutycycle(self.LPWM, 0)
             
 
-    def move_forward(self, steering_pulse):
-        """Autonomous loop core handler mapping continuous steering to motor"""
+    def move_forward(self, steering_pulse, speed=50):
+        """Autonomous loop core handler — accepts both steering and speed."""
         self.set_steering(steering_pulse)
-        self.set_state("FORWARD", 50) 
+        self.set_state("FORWARD", speed) 
         
     def avoid_obstacle(self):
-        """Emergency stop and reverse routine"""
+        """Emergency stop and reverse routine for outdoor mode."""
         self.stop()
         time.sleep(0.5)
         self.set_steering(self.SERVO_CENTER)
         self.set_state("REVERSE", 40)
         time.sleep(1)
         self.stop()
+
+    def avoid_obstacle_indoor(self):
+        """
+        Indoor evasion sequence:
+        1. Stop motors
+        2. Reverse at 40% for 0.8 seconds
+        3. Turn servo full left or right (alternating)  
+        4. Move forward for 2 seconds
+        5. Center servo and resume
+        """
+        print("[MOTOR] Indoor obstacle evasion triggered!")
+        
+        # Step 1: Stop
+        self.stop()
+        time.sleep(0.3)
+        
+        # Step 2: Back up slightly
+        self.set_steering(self.SERVO_CENTER)
+        self.set_state("REVERSE", 40)
+        time.sleep(0.8)
+        self.stop()
+        time.sleep(0.2)
+        
+        # Step 3: Pick random turn direction
+        turn_dir = random.choice([self.SERVO_LEFT, self.SERVO_RIGHT])
+        direction_name = "LEFT" if turn_dir == self.SERVO_LEFT else "RIGHT"
+        print(f"[MOTOR] Evasion turn: {direction_name}")
+        self.set_steering(turn_dir)
+        time.sleep(0.3)  # Wait for servo to reach position
+        
+        # Step 4: Move forward for 2 seconds with turned steering
+        self.set_state("FORWARD", 35)
+        time.sleep(2.0)
+        
+        # Step 5: Center servo
+        self.set_steering(self.SERVO_CENTER)
+        time.sleep(0.1)
+        
+        print("[MOTOR] Evasion complete, resuming.")
+
+    def ramp_speed(self, target_speed, duration=3.0, step_interval=0.1):
+        """
+        Gradually ramp motor speed from current to target over `duration` seconds.
+        Used for smooth indoor start-up.
+        """
+        current = self.speed
+        steps = int(duration / step_interval)
+        if steps <= 0:
+            steps = 1
+        increment = (target_speed - current) / steps
+        
+        for i in range(steps):
+            current += increment
+            clamped = max(0, min(100, int(current)))
+            self.set_state("FORWARD", clamped)
+            time.sleep(step_interval)
+        
+        # Final set to exact target
+        self.set_state("FORWARD", max(0, min(100, target_speed)))
+        print(f"[MOTOR] Ramp complete → {target_speed}% speed")
 
     def set_steering(self, angle_pulse):
         self.steering_angle = max(self.SERVO_LEFT, min(self.SERVO_RIGHT, int(angle_pulse)))

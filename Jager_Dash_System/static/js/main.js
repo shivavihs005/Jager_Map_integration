@@ -93,11 +93,7 @@ function initMap() {
             if (destinationMarker) map.removeLayer(destinationMarker);
             destinationMarker = L.marker(e.latlng).addTo(map);
             console.log("Destination set to:", e.latlng.lat, e.latlng.lng);
-            // In a real scenario, this would trigger path calculation
         });
-
-        // GPS initialization will now be driven by the backend telemetry loop
-        // instead of the laptop's navigator.geolocation
 
     } else {
         setTimeout(() => map.invalidateSize(), 100);
@@ -117,7 +113,7 @@ function initJoystick() {
         color: '#00f0ff',
         size: 200,
         lockX: false,
-        lockY: true // Actually lockY forces vertical movement in nipplejs behavior
+        lockY: true
     });
 
     // Horizontal Lock for Steering
@@ -127,7 +123,7 @@ function initJoystick() {
         position: { left: '50%', top: '50%' },
         color: '#00ff9f',
         size: 200,
-        lockX: true, // Forces horizontal movement
+        lockX: true,
         lockY: false
     });
 
@@ -208,10 +204,7 @@ function startSystem(mode) {
                 const compass = document.getElementById('compass-icon');
                 if (compass) compass.style.transform = `rotate(${-brng}deg)`;
                 
-                // FIX: Disable map interaction during Travel Mode.
-                // CSS rotation breaks Leaflet's screenX/Y drag vectors (causing reversal).
-                // Additionally, active Kalman panTo() fights manual dragging.
-                // We lock the camera down into pure tracking mode.
+                // Disable map interaction during Travel Mode.
                 map.dragging.disable();
                 map.touchZoom.disable();
                 map.scrollWheelZoom.disable();
@@ -226,6 +219,11 @@ function startSystem(mode) {
              return;
         }
     } 
+    
+    if (mode === 'INDOOR') {
+        logToTerminal('in-term', 'INITIATING INDOOR AUTONOMOUS MODE...', 'info');
+        logToTerminal('in-term', 'Ultrasonic sensor active. Ramping speed...', 'info');
+    }
 
     // Execute backend sequence
     fetch('/api/start', {
@@ -266,11 +264,13 @@ function stopSystem() {
         map.removeLayer(routeLine);
         routeLine = null;
     }
-    junctionMarkers.forEach(m => map.removeLayer(m));
+    if (map) {
+        junctionMarkers.forEach(m => map.removeLayer(m));
+    }
     junctionMarkers = [];
     globalPathCoordinates = null;
     
-    if (destinationMarker) {
+    if (map && destinationMarker) {
         map.removeLayer(destinationMarker);
         destinationMarker = null;
     }
@@ -291,7 +291,8 @@ function startTelemetryLoop() {
                 const motor_speed = data.motor_speed || 0;
                 const distance_cm = data.distance_cm || 0;
                 const motor_state = data.motor_state || 'STOP';
-                const camera_health = data.camera_health || 'OFFLINE';
+                const heading = data.heading || 0;
+                const steering = data.steering_angle || 1040;
 
                 if (gps && gps.locked) {
                     // Update Map Marker via Kalman 
@@ -320,51 +321,88 @@ function startTelemetryLoop() {
                     }
                 }
 
-                // Update generic fields
+                // ========== OUTDOOR VIEW ==========
                 if(document.getElementById('gps-status')) {
                     document.getElementById('gps-status').innerText = (gps && gps.locked) ? "LOCKED" : "NO FIX";
                     document.getElementById('out-speed').innerText = motor_speed;
                     document.getElementById('out-dist').innerText = distance_cm;
-                    
-                    let camOut = document.getElementById('camera-status-out');
-                    if (camOut) {
-                        camOut.innerText = camera_health;
-                        camOut.style.color = camera_health === 'ONLINE' ? '#00ff9f' : (camera_health === 'RECONNECTING' ? '#ffea00' : '#ff003c');
-                    }
+                    document.getElementById('out-heading').innerText = Math.round(heading);
                 }
                 
+                // ========== INDOOR VIEW ==========
                 if(document.getElementById('indoor-dist')) {
                     document.getElementById('indoor-dist').innerText = distance_cm + "cm";
                     document.getElementById('indoor-state').innerText = motor_state;
+                    document.getElementById('indoor-speed').innerText = motor_speed;
+                    document.getElementById('indoor-heading').innerText = Math.round(heading);
                     
-                    if (distance_cm < 40) {
+                    if (distance_cm < 15) {
                          document.getElementById('indoor-dist').style.color = '#ff003c';
+                    } else if (distance_cm < 40) {
+                         document.getElementById('indoor-dist').style.color = '#ffeb3b';
                     } else {
                          document.getElementById('indoor-dist').style.color = '#00ff9f';
                     }
-                    
-                    let camIn = document.getElementById('camera-status-in');
-                    if (camIn) {
-                        camIn.innerText = camera_health;
-                        camIn.style.color = camera_health === 'ONLINE' ? '#00ff9f' : (camera_health === 'RECONNECTING' ? '#ffea00' : '#ff003c');
-                    }
                 }
                 
+                // ========== INDOOR SONAR VISUALIZATION ==========
+                updateSonarViz(distance_cm);
+
+                // ========== MANUAL VIEW ==========
                 if(document.getElementById('man-state')) {
                     document.getElementById('man-state').innerText = motor_state;
                     document.getElementById('man-dist').innerText = distance_cm;
+                    document.getElementById('man-heading').innerText = Math.round(heading);
+                    document.getElementById('man-speed').innerText = motor_speed;
                 }
 
+                // Terminal logging (throttled)
                 if (Math.random() > 0.8) {
                     const activeTerm = document.getElementById('outdoor-view').classList.contains('active') ? 'out-term' : 
                                        (document.getElementById('indoor-view').classList.contains('active') ? 'in-term' : null);
                     if (activeTerm && gps && gps.locked) {
-                        logToTerminal(activeTerm, `POS: ${currentLat.toFixed(5)},${currentLon.toFixed(5)} | STATE: ${motor_state} | SPD: ${motor_speed}%`);
+                        logToTerminal(activeTerm, `POS: ${currentLat.toFixed(5)},${currentLon.toFixed(5)} | STATE: ${motor_state} | SPD: ${motor_speed}% | HDG: ${Math.round(heading)}°`);
                     }
                 }
             })
             .catch(err => console.error("Telemetry fetch error", err));
     }, 500); // 2Hz updates
+}
+
+// ========== SONAR DISTANCE VISUALIZATION ==========
+function updateSonarViz(distanceCm) {
+    const valEl = document.getElementById('sonar-distance-val');
+    const barEl = document.getElementById('sonar-bar-fill');
+    const statusEl = document.getElementById('sonar-status-label');
+    
+    if (!valEl || !barEl || !statusEl) return;
+    
+    valEl.innerText = Math.round(distanceCm);
+    
+    // Bar fill: 0-150cm range, clamp at 100%
+    const pct = Math.min(100, (distanceCm / 150) * 100);
+    barEl.style.width = pct + '%';
+    
+    // Color coding
+    if (distanceCm < 15) {
+        barEl.style.background = 'linear-gradient(90deg, #ff003c, #ff4466)';
+        barEl.style.boxShadow = '0 0 15px rgba(255, 0, 60, 0.8)';
+        statusEl.innerText = '⚠ DANGER — OBSTACLE';
+        statusEl.style.color = '#ff003c';
+        valEl.style.color = '#ff003c';
+    } else if (distanceCm < 40) {
+        barEl.style.background = 'linear-gradient(90deg, #ffeb3b, #ff9800)';
+        barEl.style.boxShadow = '0 0 10px rgba(255, 235, 59, 0.6)';
+        statusEl.innerText = '⚡ CAUTION';
+        statusEl.style.color = '#ffeb3b';
+        valEl.style.color = '#ffeb3b';
+    } else {
+        barEl.style.background = 'linear-gradient(90deg, #00ff9f, #00f0ff)';
+        barEl.style.boxShadow = '0 0 10px rgba(0, 255, 159, 0.6)';
+        statusEl.innerText = '✓ CLEAR PATH';
+        statusEl.style.color = '#00ff9f';
+        valEl.style.color = '#00ff9f';
+    }
 }
 
 // Terminal Logging System

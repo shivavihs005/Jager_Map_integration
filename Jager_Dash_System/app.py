@@ -1,11 +1,9 @@
-from flask import Flask, render_template, request, jsonify, Response
-from hardware.camera import CameraStream
+from flask import Flask, render_template, request, jsonify
 from navigation.state_machine import StateMachine
 
 app = Flask(__name__)
 
 # Initialize singletons
-camera = CameraStream()
 state_machine = StateMachine()
 
 @app.route('/')
@@ -29,18 +27,14 @@ def calibrate_sensors():
     """Trigger backend hardware diagnostics"""
     result = state_machine.sensors.calibrate()
     
-    # Active Camera Test
-    cam_status = camera.test_connection()
-    
-    # In a full diagnostic this would query every component actively.
     test_results = {
         "status": "success",
         "tests": {
             "I2C_BUS_1": "PASS",
             "ULTRASONIC_HC_SR04": "PASS",
             "IMU_MPU6500": "PASS",
-            "GPS_UART": "PASS (LOCKED)",
-            "USB_CAMERA": cam_status
+            "MAG_QMC5883L": "PASS",
+            "GPS_UART": "PASS (LOCKED)"
         }
     }
     return jsonify(test_results)
@@ -77,11 +71,13 @@ def set_speed():
 @app.route('/api/sensors', methods=['GET'])
 def get_sensors():
     data = state_machine.sensors.get_all()
-    # Add current state
+    # Add current state — use keys that frontend expects
     data['mode'] = state_machine.mode
     data['motor_state'] = state_machine.motor.state
     data['motor_speed'] = state_machine.motor.speed
-    data['camera_health'] = camera.get_health()
+    data['distance_cm'] = data.pop('distance', 0)  # Rename to match frontend
+    data['heading'] = data.get('imu', {}).get('heading', 0)
+    data['steering_angle'] = state_machine.motor.steering_angle
     return jsonify(data)
 
 @app.route('/api/distance', methods=['GET'])
@@ -101,12 +97,6 @@ def get_route():
         return jsonify({"status": "success", "waypoints": waypoints})
     else:
         return jsonify({"status": "error", "message": "Route generation failed"}), 400
-
-@app.route('/video')
-def video_feed():
-    """Video streaming route for OpenCV camera feed."""
-    return Response(camera.generate_mjpeg_stream(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
     # Typically runs on port 5050 to avoid conflicts

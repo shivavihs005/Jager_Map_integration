@@ -39,10 +39,13 @@ class StateMachine:
         
         self.waypoints = []
         self.current_wp_index = 0
+        self.max_speed = 50  # Default from slider
         
-        # Navigation tuning
-        self.Kp = 8.0 # Steering proportional gain
-        self.MAX_STEER = 400 # Max offset from center (1460-1040=420 max)
+        # PD Navigation tuning
+        self.Kp = 8.0   # Steering proportional gain
+        self.Kd = 2.0   # Steering derivative gain (reduces oscillation)
+        self.MAX_STEER = 400  # Max offset from center (1460-1040=420 max)
+        self.prev_error = 0.0  # For derivative term
         
         self.nav_thread = None
         self.running = False
@@ -66,7 +69,7 @@ class StateMachine:
         self.mode = "STOP"
         self.motor.stop()
         if self.nav_thread:
-            self.nav_thread.join(timeout=1.0)
+            self.nav_thread.join(timeout=2.0)
             self.nav_thread = None
 
     def fetch_osrm_route(self, lat1, lon1, lat2, lon2):
@@ -107,8 +110,10 @@ class StateMachine:
         print(f"[NAV] Generated {len(self.waypoints)} Radius-Based Waypoints.")
 
     def outdoor_main_loop(self):
-        """The core continuous autonomous loop"""
+        """The core continuous autonomous loop with PD steering and speed from slider."""
         print("[NAV] Entering Continuous OUTDOOR Loop...")
+        self.prev_error = 0.0
+        
         while self.running and self.mode == "OUTDOOR":
             gps = self.sensors.get_filtered_gps()
             heading = self.sensors.get_heading()
@@ -118,6 +123,7 @@ class StateMachine:
             if obstacle_dist < 40.0:
                 print(f"[NAV] OBSTACLE DETECTED at {obstacle_dist}cm! Engaging Avoidance.")
                 self.motor.avoid_obstacle()
+                self.prev_error = 0.0
                 continue
                 
             # Priority 2: Navigation Target
@@ -129,9 +135,9 @@ class StateMachine:
             current_wp = self.waypoints[self.current_wp_index]
             dist = haversine(gps["lat"], gps["lon"], current_wp["lat"], current_wp["lon"])
 
-            # 🔹 RANGE-BASED TRIGGER
+            # RANGE-BASED TRIGGER
             if dist < current_wp["radius"]:
-                print(f"[NAV] Entered WP Zone {self.current_wp_index} (Dist: {dist:.1f}m). Triggering Action: {current_wp['action']}")
+                print(f"[NAV] Entered WP Zone {self.current_wp_index} (Dist: {dist:.1f}m). Action: {current_wp['action']}")
                 if self.current_wp_index < len(self.waypoints) - 1:
                     next_wp = self.waypoints[self.current_wp_index + 1]
                     target_bearing = calculate_bearing(gps["lat"], gps["lon"], next_wp["lat"], next_wp["lon"])
@@ -141,33 +147,62 @@ class StateMachine:
             else:
                 target_bearing = calculate_bearing(gps["lat"], gps["lon"], current_wp["lat"], current_wp["lon"])
 
-            # Error computation
+            # PD Error computation
             error = normalize_angle(target_bearing - heading)
+            derivative = error - self.prev_error
+            self.prev_error = error
             
-            # Continuous Steering logic: pd control
-            steering = self.Kp * error
-            steering = max(min(steering, self.MAX_STEER), -self.MAX_STEER) # Clamp
+            # Continuous Steering: PD control
+            steering = self.Kp * error + self.Kd * derivative
+            steering = max(min(steering, self.MAX_STEER), -self.MAX_STEER)
             
             pulse = int(self.motor.SERVO_CENTER + steering)
-            self.motor.move_forward(pulse)
+            
+            # Speed: use slider max_speed, reduce near waypoints
+            drive_speed = self.max_speed
+            if dist < 5.0:  # Within 5m of waypoint, slow down
+                drive_speed = int(self.max_speed * 0.6)
+            
+            self.motor.move_forward(pulse, drive_speed)
             
             # Loop delay for stable CPU tracking (20Hz)
             time.sleep(0.05)
 
     def indoor_main_loop(self):
-        """Simple mockup for indoor camera direction logic"""
-        from hardware.camera import CameraStream
-        cam = CameraStream()
+        """
+        Ultrasonic-only indoor autonomous mode.
+        - On start: ramp speed from 0 to max_speed over 3 seconds.
+        - Continuously move forward at max_speed.
+        - If obstacle < 15cm: execute evasion sequence (back up, turn, drive 2s, center).
+        - Resume forward at max_speed after evasion.
+        """
+        print("[NAV] Entering INDOOR Autonomous Loop (Ultrasonic Only)...")
+        
+        # Phase 1: Gradual speed ramp-up
+        print(f"[NAV] Ramping speed to {self.max_speed}%...")
+        self.motor.ramp_speed(self.max_speed, duration=3.0)
+        
+        # Phase 2: Continuous forward with obstacle check
         while self.running and self.mode == "INDOOR":
             obstacle_dist = self.sensors.ultrasonic.get_distance()
 
-            if obstacle_dist < 40.0:
-                 self.motor.avoid_obstacle()
+            if obstacle_dist < 15.0:
+                print(f"[NAV] INDOOR OBSTACLE at {obstacle_dist:.1f}cm! Evasion sequence...")
+                self.motor.avoid_obstacle_indoor()
+                
+                # After evasion, ramp back up to max speed
+                if self.running and self.mode == "INDOOR":
+                    print(f"[NAV] Re-ramping to {self.max_speed}%...")
+                    self.motor.ramp_speed(self.max_speed, duration=2.0)
             else:
-                 # Simplified bright-seeking logic mock wrapper
-                 steering_pulse = cam.get_brightness_direction()
-                 self.motor.move_forward(steering_pulse)
-            time.sleep(0.1)
+                # Keep driving forward at slider max speed
+                self.motor.set_state("FORWARD", self.max_speed)
+            
+            time.sleep(0.05)  # 20Hz loop
+        
+        # Clean stop on exit
+        self.motor.stop()
+        print("[NAV] INDOOR loop ended.")
 
     def manual_joystick(self, x, y):
         if self.mode == "MANUAL":
