@@ -4,8 +4,8 @@ import random
 
 # --- CONFIGURATION ---
 # Ultrasonic Pins
-TRIG = 27
-ECHO = 22
+TRIG = 25
+ECHO = 9
 
 # Motor Pins (BTS7960)
 RPWM = 13

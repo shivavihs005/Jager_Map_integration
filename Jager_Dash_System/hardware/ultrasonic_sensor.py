@@ -10,10 +10,10 @@ except ImportError:
 class UltrasonicSensor:
     """
     Interfaces with the HC-SR04 Ultrasonic Distance Sensor.
-    TRIG -> GPIO 27 (Output)
-    ECHO -> GPIO 22 (Input) - ⚠️ Requires 3.3V voltage divider!
+    TRIG -> GPIO 25 (Output)
+    ECHO -> GPIO 9 (Input) - ⚠️ Requires 3.3V voltage divider!
     """
-    def __init__(self, trig_pin=27, echo_pin=22):
+    def __init__(self, trig_pin=25, echo_pin=9):
         self.trig_pin = trig_pin
         self.echo_pin = echo_pin
         self.pi = None
