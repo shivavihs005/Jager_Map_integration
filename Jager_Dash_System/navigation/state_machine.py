@@ -186,16 +186,23 @@ class StateMachine:
         while self.running and self.mode == "INDOOR":
             obstacle_dist = self.sensors.ultrasonic.get_distance()
 
-            if obstacle_dist < 15.0:
-                print(f"[NAV] INDOOR OBSTACLE at {obstacle_dist:.1f}cm! Evasion sequence...")
+            if obstacle_dist < 25.0:
+                # EMERGENCY STOP + EVASION
+                print(f"[NAV] INDOOR OBSTACLE at {obstacle_dist:.1f}cm! Emergency stop + evasion...")
                 self.motor.avoid_obstacle_indoor(self.max_speed)
                 
                 # After evasion, ramp back up to max speed
                 if self.running and self.mode == "INDOOR":
                     print(f"[NAV] Re-ramping to {self.max_speed}%...")
                     self.motor.ramp_speed(self.max_speed, duration=2.0)
+            elif obstacle_dist < 35.0:
+                # SLOWDOWN ZONE: scale speed from max to 0 as distance 35 → 25
+                scale = (obstacle_dist - 25.0) / 10.0  # 1.0 at 35cm, 0.0 at 25cm
+                slow_speed = int(self.max_speed * scale)
+                slow_speed = max(10, slow_speed)
+                self.motor.set_state("FORWARD", slow_speed)
             else:
-                # Keep driving forward at slider max speed
+                # CLEAR — full speed
                 self.motor.set_state("FORWARD", self.max_speed)
             
             time.sleep(0.05)  # 20Hz loop
