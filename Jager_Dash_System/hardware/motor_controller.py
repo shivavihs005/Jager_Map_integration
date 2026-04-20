@@ -38,6 +38,8 @@ class MotorController:
                 print("[MOTOR] ✅ pigpio connected! Hardware control ACTIVE.")
                 self.pi.set_mode(self.R_EN, pigpio.OUTPUT)
                 self.pi.set_mode(self.L_EN, pigpio.OUTPUT)
+                self.pi.set_mode(self.RPWM, pigpio.OUTPUT)
+                self.pi.set_mode(self.LPWM, pigpio.OUTPUT)
                 self.pi.write(self.R_EN, 1)
                 self.pi.write(self.L_EN, 1)
                 
