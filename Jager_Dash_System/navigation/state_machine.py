@@ -206,11 +206,4 @@ class StateMachine:
 
     def manual_joystick(self, x, y):
         if self.mode == "MANUAL":
-            dist = self.sensors.ultrasonic.get_distance()
-            
-            # Prevent moving forward if obstacle is close (under 30cm)
-            if y > 10 and dist < 30.0:
-                print(f"[MANUAL] Obstacle too close ({dist} cm), halting forward thrust!")
-                y = 0  # Force halt on forward speed by setting thrust to 0
-
             self.motor.execute_joystick(x, y)
