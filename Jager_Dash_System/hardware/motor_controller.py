@@ -83,24 +83,24 @@ class MotorController:
         time.sleep(1)
         self.stop()
 
-    def avoid_obstacle_indoor(self):
+    def avoid_obstacle_indoor(self, speed=50):
         """
-        Indoor evasion sequence:
+        Indoor evasion sequence using slider speed:
         1. Stop motors
-        2. Reverse slowly at 20% for 1 second
+        2. Reverse at slider speed for 1 second
         3. Turn servo full left or right  
-        4. Move forward gently for 2 seconds
+        4. Move forward at slider speed for 2 seconds
         5. Center servo and resume
         """
-        print("[MOTOR] Indoor obstacle evasion triggered!")
+        print(f"[MOTOR] Indoor obstacle evasion triggered! (speed={speed}%)")
         
         # Step 1: Stop
         self.stop()
         time.sleep(0.3)
         
-        # Step 2: Back up slowly
+        # Step 2: Back up at slider speed
         self.set_steering(self.SERVO_CENTER)
-        self.set_state("REVERSE", 20)
+        self.set_state("REVERSE", speed)
         time.sleep(1.0)
         self.stop()
         time.sleep(0.3)
@@ -110,10 +110,10 @@ class MotorController:
         direction_name = "LEFT" if turn_dir == self.SERVO_LEFT else "RIGHT"
         print(f"[MOTOR] Evasion turn: {direction_name}")
         self.set_steering(turn_dir)
-        time.sleep(0.3)  # Wait for servo to reach position
+        time.sleep(0.3)
         
-        # Step 4: Move forward gently for 2 seconds with turned steering
-        self.set_state("FORWARD", 25)
+        # Step 4: Move forward at slider speed with turned steering
+        self.set_state("FORWARD", speed)
         time.sleep(2.0)
         
         # Step 5: Center servo

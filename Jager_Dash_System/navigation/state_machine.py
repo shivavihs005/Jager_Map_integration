@@ -188,7 +188,7 @@ class StateMachine:
 
             if obstacle_dist < 15.0:
                 print(f"[NAV] INDOOR OBSTACLE at {obstacle_dist:.1f}cm! Evasion sequence...")
-                self.motor.avoid_obstacle_indoor()
+                self.motor.avoid_obstacle_indoor(self.max_speed)
                 
                 # After evasion, ramp back up to max speed
                 if self.running and self.mode == "INDOOR":
